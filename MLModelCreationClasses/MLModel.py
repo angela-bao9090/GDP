@@ -1,5 +1,3 @@
-# Todo: fix inconsistent variable naming | comment code | remove repeated code | make Autoencoder | add (a possible) expected output | add more customisability to some of the models | try to universalise test results output
-
 #file containing classes for types of ML algorithms
 # Neural Network (using Logistic Regression)
 # Logistic Regression
@@ -12,304 +10,185 @@
 
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
-import numpy as np
 import xgboost as xgb
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, IsolationForest
-from sklearn.metrics import accuracy_score, classification_report, log_loss
 
-from DatasetReader import DatasetReader
+from SuperModels import TorchModel as TM, SklearnModel as SKLM
 
-class NeuralNetworkModel(nn.Module):
-    def __init__(self, input_size, train_file, test_file):
-        super().__init__()
+    
+    
+class NeuralNetworkModel(TM):
+    '''
+    Class for creating a Neural Network which uses Logistic Regression - Inherits from TorchModel in the SuperModels file
+    
+    Parameters:
+        train_file - location of dataset file to be used for training
+        test_file  - location of dataset file to be used for testing
+        batch_size - number of samples per iteration before updating the models weights
+        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
+        epochs - number of times training dataset is passed through
+        momentum - allows for faster convergence, but may overshoot
+        weight_decay - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)
+        hiden_layer_sizes - sizes of each layer of the Neural Network (also determines number of layers)
+        dropout_rate - scaling of weights when dropout (seting some neurons to zero during each training step) is applied 
+        activation_fn - mathematical operation applied to output of a neuron - introduces non-linearity to the network 
+    '''
+    
+    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7,
+                 learning_rate=1e-3, epochs=5, momentum=0.9, weight_decay=0.0,
+                 hidden_layer_sizes=[8, 11], dropout_rate=0.2, activation_fn=nn.ReLU):
+        # Use superclass __init__(), create titles for plots, initiate model
         
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(30, 10),
-            nn.ReLU(),
-            nn.Linear(10, 10),
-            nn.ReLU(),
-            nn.Linear(10, 1)  
-        )
+        super().__init__(train_file, test_file, batch_size, threshold)
+        self.titles = []
+        for i in range(epochs):
+            self.titles.append('Neural Network - Epoch')
+        self.initModel(learning_rate, epochs, momentum, weight_decay, hidden_layer_sizes, dropout_rate, activation_fn)
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.linear_relu_stack = self.linear_relu_stack.to(self.device)  
+    def initModel(self, learning_rate, epochs, momentum, weight_decay, hidden_layer_sizes, dropout_rate, activation_fn):
+        # Make the model with the hyperparameters, choose optimizer
         
-        self.train_dataset = DatasetReader(csv_file=train_file)
-        self.train_loader = DataLoader(self.train_dataset, batch_size=64, shuffle=True)
+        self.layers = []
         
-        self.test_dataset = DatasetReader(csv_file=test_file)
-        self.test_loader = DataLoader(self.test_dataset, batch_size=64, shuffle=False)
+        # Hidden layers
+        prev_size = self.train_dataset.size()
+        for hidden_size in hidden_layer_sizes:
+            self.layers.append(nn.Linear(prev_size, hidden_size))
+            self.layers.append(activation_fn())  # Apply the activation function
+            if dropout_rate > 0:
+                self.layers.append(nn.Dropout(dropout_rate))  # Add dropout if specified
+            prev_size = hidden_size
+        self.layers.append(nn.Linear(prev_size, 1))  
         
+        self.model = nn.Sequential(*self.layers)
         self.loss_fn = nn.BCEWithLogitsLoss()  
-        self.optimizer = torch.optim.SGD(self.linear_relu_stack.parameters(), lr=1e-3)
-        
-        self.epochs = 5
 
-    def forward(self, x):
-        logits = self.linear_relu_stack(x)  
-        return logits  
+        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    def train(self):
-        size = len(self.train_loader.dataset)
-        self.linear_relu_stack.train()
-        
-        running_loss = 0.0
-        for batch, (X, y) in enumerate(self.train_loader):
-            X, y = X.to(self.device), y.to(self.device)
-
-            pred = self.linear_relu_stack(X)
-
-            loss = self.loss_fn(pred.squeeze(), y)  
-
-            self.optimizer.zero_grad()  
-            loss.backward()  
-            self.optimizer.step()  
-
-            running_loss += loss.item()
-
-            if batch % 100 == 0:
-                current = (batch + 1) * len(X)
-                print(f"Loss: {loss.item():>7f}  [{current:>5d}/{size:>5d}]")
-                
-        return running_loss / len(self.train_loader)
-
-    def test(self):
-        count1 = 0
-        count2 = 0
-        size = len(self.test_loader.dataset)
-        num_batches = len(self.test_loader)
-        self.linear_relu_stack.eval()  
-        test_loss, correct = 0, 0
-        incorrect_predictions = []  
-        
-        with torch.no_grad():
-            for X, y in self.test_loader:
-                X, y = X.to(self.device), y.to(self.device)
-                logits = self.linear_relu_stack(X)  
-                test_loss += self.loss_fn(logits.squeeze(), y).item()  
-
-                predicted = (torch.sigmoid(logits) > 0.5).float() 
-
-                incorrect_indices = (predicted.squeeze() != y).nonzero(as_tuple=True)[0]  
-                
-                for idx in incorrect_indices:
-                    if y[idx].item() == 1: count1 += 1
-                    else: count2 += 1
-                    incorrect_predictions.append({
-                        'index': idx.item(),
-                        'true_label': y[idx].item(),
-                        'predicted_label': predicted[idx].item(),
-                        'logits': logits[idx].item()
-                    })
-
-                correct += (predicted.squeeze() == y).sum().item()
-
-        test_loss /= num_batches  
-        accuracy = 100 * correct / size  
-        print(f"Test Error: \n Accuracy: {accuracy:>0.1f}%, Avg loss: {test_loss:>8f} \n")
-        
-        if incorrect_predictions:
-            print("false negatives", count1, "/492")
-            print("false positives:", count2)
-        return test_loss, accuracy
-        
-    def commenceTraining(self):
-        for t in range(self.epochs):
-            print(f"Epoch {t+1}\n-------------------------------")
-            train_loss = self.train()
-            print(f"Train Loss: {train_loss:>7f}")
-            test_loss, accuracy = self.test()
-
-        print("Done!")
-        
-        
-        
-class LogisticRegressionModel(nn.Module):
-    def __init__(self, input_size, train_file, test_file):
-        super(LogisticRegressionModel, self).__init__()
-        
-        self.model = nn.Linear(input_size, 1)  
-        
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = self.model.to(self.device)  
+        self.model = self.model.to(self.device)
         
-        self.train_dataset = DatasetReader(csv_file=train_file)
-        self.train_loader = DataLoader(self.train_dataset, batch_size=64, shuffle=True)
+        self.epochs = epochs
         
-        self.test_dataset = DatasetReader(csv_file=test_file)
-        self.test_loader = DataLoader(self.test_dataset, batch_size=64, shuffle=False)
         
+class LogisticRegressionModel(TM):
+    '''
+    Class for creating a Logistic Regression ML algorithm - Inherits from TorchModel in the SuperModels file
+    
+    Parameters:
+        train_file - location of dataset file to be used for training
+        test_file  - location of dataset file to be used for testing
+        batch_size - number of samples per iteration before updating the models weights
+        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
+        epochs - number of times training dataset is passed through
+        momentum - allows for faster convergence, but may overshoot
+        weight_decay - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)   
+    '''
+    
+    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7, learning_rate=1e-3, epochs=5, momentum=0.9, weight_decay=0.0):   
+        # Use superclass __init__(), create titles for plots, initiate model
+         
+        super().__init__(train_file, test_file, batch_size, threshold)
+        self.titles = []
+        for i in range(epochs):
+            self.titles.append('Logistic Regression - Epoch')
+        self.initModel(learning_rate, epochs, momentum, weight_decay)
+        
+    def initModel(self, learning_rate, epochs, momentum, weight_decay):
+        # Make the model with the hyperparameters, choose optimizer
+        
+        self.model = nn.Linear(self.train_dataset.size(), 1) 
         self.loss_fn = nn.BCEWithLogitsLoss()  
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
         
-        self.epochs = 5
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    def forward(self, x):
-        logits = self.model(x)  
-        return logits  
-
-    def train_one_epoch(self):
-        size = len(self.train_loader.dataset)
-        self.model.train()
-        
-        running_loss = 0.0
-        for batch, (X, y) in enumerate(self.train_loader):
-            X, y = X.to(self.device), y.to(self.device)
-
-            pred = self.model(X)
-
-            loss = self.loss_fn(pred.squeeze(), y)  
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = self.model.to(self.device)
             
-            self.optimizer.zero_grad()  
-            loss.backward()  
-            self.optimizer.step() 
-
-            running_loss += loss.item()
-
-            if batch % 100 == 0:
-                current = (batch + 1) * len(X)
-                print(f"Loss: {loss.item():>7f}  [{current:>5d}/{size:>5d}]")
-                
-        return running_loss / len(self.train_loader)
-
-    def test(self):
-        size = len(self.test_loader.dataset)
-        num_batches = len(self.test_loader)
-        self.model.eval()  
-        test_loss, correct = 0, 0
-        with torch.no_grad():
-            for X, y in self.test_loader:
-                X, y = X.to(self.device), y.to(self.device)
-                logits = self.model(X)  
-                test_loss += self.loss_fn(logits.squeeze(), y).item()  
-
-                predicted = (torch.sigmoid(logits) > 0.5).float()  
-                correct += (predicted.squeeze() == y).sum().item() 
-
-        test_loss /= num_batches  
-        accuracy = 100 * correct / size  
-        print(f"Test Error: \n Accuracy: {accuracy:>0.1f}%, Avg loss: {test_loss:>8f} \n")
-        return test_loss, accuracy
-        
-    def commenceTraining(self):
-        for t in range(self.epochs):
-            print(f"Epoch {t+1}\n-------------------------------")
-            train_loss = self.train_one_epoch()
-            print(f"Train Loss: {train_loss:>7f}")
-            test_loss, accuracy = self.test()
-
-        print("Done!")
+        self.epochs = epochs
         
         
+class XGBoostModel(SKLM):
+    '''
+    Class for creating a eXtreme Gradient Boosting ML algorithm - Inherits from Sklearn in the SuperModels file
+    
+    Parameters:
+        train_file - location of dataset file to be used for training
+        test_file  - location of dataset file to be used for testing
+        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
+        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
+        max depth - max depth of individual trees
+        random_state - seed for random number generation - allows for reproducibility of model
+    '''
+    
+    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 100, learning_rate = 0.1, max_depth = 3, random_state = 42):
+        # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
         
-# Below class includes a possible model to perform on single date input after testing and training
-class XGBoostModel:
-    def __init__(self, train_file, test_file, n_estimators = 100, learning_rate = 0.1, max_depth = 3, random_state = 42):
-        self.train_dataset = DatasetReader(csv_file=train_file)
-        self.test_dataset = DatasetReader(csv_file=test_file)
-        
-        self.X_train = self.train_dataset.features
-        self.y_train = self.train_dataset.target
-        self.X_test = self.test_dataset.features
-        self.y_test = self.test_dataset.target
-        
+        super().__init__(train_file, test_file, threshold)
+    
         self.model = xgb.XGBClassifier(
             n_estimators=n_estimators,  
             learning_rate=learning_rate,  
             max_depth=max_depth,  
             random_state=random_state  
         )
-
+        self.supervised = True
+        self.titles = ["XGBoost"]
         
-    def train(self):
-        self.model.fit(self.X_train, self.y_train)
         
-    def test(self):
-        y_pred = self.model.predict(self.X_test)
         
-        accuracy = accuracy_score(self.y_test, y_pred)
-        print(f"Accuracy: {accuracy:.4f}")
-        
-        return accuracy
+class GradientBoostingMachineModel(SKLM):
+    '''
+    Class for creating a Gradient Boosting ML algorithm - Inherits from Sklearn in the SuperModels file
     
-    def commenceTraining(self):
-        self.train()
-        self.test()
+    Parameters:
+        train_file - location of dataset file to be used for training
+        test_file  - location of dataset file to be used for testing
+        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
+        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
+        max depth - max depth of individual trees
+        random_state - seed for random number generation - allows for reproducibility of model
+    '''
     
-    # Possible prediction algorithm - for new input data
-    '''def predict(self, X_new):
-        if self.transform:
-            X_new = self.scaler.transform(X_new) 
+    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42):
+        # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
         
-        return self.model.predict(X_new)'''
-        
-        
-
-class GradientBoostingMachineModel:
-    def __init__(self, train_file, test_file, n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42):
-        self.train_dataset = DatasetReader(csv_file=train_file)
-
-        self.test_dataset = DatasetReader(csv_file=test_file)
-        
-        self.X_train = self.train_dataset.features
-        self.y_train = self.train_dataset.target
-        
-        self.X_test = self.test_dataset.features
-        self.y_test = self.test_dataset.target
+        super().__init__(train_file, test_file, threshold)
         
         self.model = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth, random_state=random_state)
+        self.supervised = True
+        self.titles = ["Gradient Boosting Machine"]
         
-    def train(self):
-        self.model.fit(self.X_train, self.y_train)
         
-    def test(self):
-        self.val_predictions = self.model.predict(self.X_test)
-        self.val_accuracy = accuracy_score(self.y_test, self.val_predictions)
-        print(f"Validation Accuracy: {self.val_accuracy * 100:.2f}%")
+        
+class RandomForestModel(SKLM):
+    '''
+    Class for creating a Random Forest ML algorithm - Inherits from Sklearn in the SuperModels file
+    
+    Parameters:
+        train_file - location of dataset file to be used for training
+        test_file  - location of dataset file to be used for testing
+        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
+        max depth - max depth of individual trees
+        min_samples_split - min number of samples to split an internal node
+        min_samples_leaf - minimum samples required to be at a leaf node
+        random_state - seed for random number generation - allows for reproducibility of model
+    '''
+    
+    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 50, max_depth = 20, min_samples_split = 5, min_samples_leaf = 1, random_state = 42):
+        # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
+        
+        super().__init__(train_file, test_file, threshold)
 
-        self.test_predictions = self.model.predict(self.X_test)
-        self.test_accuracy = accuracy_score(self.y_test, self.test_predictions)
-        print(f"Test Accuracy: {self.test_accuracy * 100:.2f}%")
-
-        print("Classification Report on Test Data:")
-        print(classification_report(self.y_test, self.test_predictions))
-
-        self.probabilities = self.model.predict_proba(self.X_test)[:, 1] 
-
-        self.threshold = 0.5  
-        self.predicted_anomalies = (self.probabilities > self.threshold).astype(int)
-
-        print("Anomaly Detection Classification Report:")
-        print(classification_report(self.y_test, self.predicted_anomalies))
-        
-    def commenceTraining(self):
-        self.train()
-        self.test()
-        
-        
-# Below class includes a possible method for tuning hyperparameters
-class RandomForestModel:
-    def __init__(self, train_file, test_file, n_estimators = 50, max_depth = 20, min_samples_split = 5, min_samples_leaf = 1, random_state = 42):
-        
-        self.train_dataset = DatasetReader(csv_file=train_file)
-        self.test_dataset = DatasetReader(csv_file=test_file)
-        
-        self.X_train = self.train_dataset.features
-        self.y_train = self.train_dataset.target
-        
-        self.X_test = self.test_dataset.features
-        self.y_test = self.test_dataset.target
-        
-        self.classifier = RandomForestClassifier(    
-            random_state=random_state,
-            class_weight='balanced',  
-            oob_score=True,           
-            n_jobs=-1                
-        )
-        
         self.model = RandomForestClassifier(
-            random_state=42,
+            random_state=random_state,
             oob_score=True,         
             n_jobs=-1,                 
             n_estimators=n_estimators,
@@ -317,53 +196,27 @@ class RandomForestModel:
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf
         )
+        self.supervised = True
+        self.titles = ["Random Forest"]
+
+
+
+class IsolationForestModel(SKLM):
+    '''
+    Class for creating an Isolation Forest ML algorithm - Inherits from Sklearn in the SuperModels file
     
-    # Testing a mwthod of hyperparameter tuning - looks promising
-    '''def tuning(self):
-        self.param_grid = {
-            'n_estimators': [50, 100, 200],
-            'max_depth': [10, 20, 30, None],
-            'min_samples_split': [5, 10],
-            'min_samples_leaf': [1, 4],
-        }
-        
-        self.grid_search = GridSearchCV(estimator=self.classifier, param_grid=self.param_grid, cv=5, verbose=2, n_jobs=-1)
-        self.grid_search.fit(self.X_train, self.y_train)
-        print("Best hyperparameters:", self.grid_search.best_params_)
-        
-        self.model = self.grid_search.best_estimator_'''
+    Parameters:
+        train_file - location of dataset file to be used for training
+        test_file  - location of dataset file to be used for testing
+        contamination - expected proportion of outliers in training data
+        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
+        random_state - seed for random number generation - allows for reproducibility of model
+    '''
     
-    def train(self):
-        self.model.fit(self.X_train, self.y_train)
+    def __init__(self, train_file, test_file, contamination = "auto", n_estimators = 50, random_state = 42): 
+        # Use superclass __init__(), initiate model, specify NOT a supervised ML algorithm, create titles for plot
         
-    def test(self):
-        self.y_pred = self.model.predict(self.X_test)
-        self.y_pred_prob = self.model.predict_proba(self.X_test)[:, 1]  
-    
-        self.accuracy = accuracy_score(self.y_test, self.y_pred)
-        self.logloss = log_loss(self.y_test, self.y_pred_prob)
-
-        print(f"Random Forest Model Accuracy: {self.accuracy * 100:.2f}%")
-        print(f"Model Log Loss: {self.logloss:.4f}")
-
-        print(f"OOB Score (training data): {self.model.oob_score_:.4f}")
-        
-    def commenceTraining(self):
-        self.train()
-        self.test()
-        
-
-
-class IsolationForestModel:
-    def __init__(self, train_file, test_file, contamination = "auto", n_estimators = 100, random_state = 42): 
-        self.train_dataset = DatasetReader(csv_file=train_file)
-        self.test_dataset = DatasetReader(csv_file=test_file)
-
-        self.X_train = self.train_dataset.features
-        self.y_train = self.train_dataset.target
-        
-        self.X_test = self.test_dataset.features
-        self.y_test = self.test_dataset.target
+        super().__init__(train_file, test_file, 1) # 1 is a placeholder value since Isolation Forest doesn't use a threshold
         
         self.model = IsolationForest(
             n_estimators=n_estimators, 
@@ -371,50 +224,35 @@ class IsolationForestModel:
             random_state=random_state,
             n_jobs=-1 
         )
-        
-    def train(self):
-        self.model.fit(self.X_train)
-        
-    def test(self):
-        self.train_preds = self.model.predict(self.X_train)
-        self.test_preds = self.model.predict(self.X_test)
+        self.supervised = False
+        self.titles = ["Isolation Forest"]
 
-        self.train_preds = np.where(self.train_preds == 1, 0, 1)  
-        self.test_preds = np.where(self.test_preds == 1, 0, 1)  
-        
-        self.train_accuracy = accuracy_score(self.y_train, self.train_preds)
-        self.test_accuracy = accuracy_score(self.y_test, self.test_preds)
-
-        print(f"Training Accuracy: {self.train_accuracy * 100:.2f}%")
-        print(f"Test Accuracy: {self.test_accuracy * 100:.2f}%")
-        
-    def commenceTraining(self):
-        self.train()
-        self.test()
         
         
-def main():
+        
+        
+def main(): # Test code
     train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
     test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
     
     print("_________________________________________________________________________")
     print(" Neural Network using logisstic regression")
-    model = NeuralNetworkModel(30, train_file, test_file)  
-    model.commenceTraining()         
+    model = NeuralNetworkModel(train_file, test_file)  
+    model.commenceTraining() 
     
     print("_________________________________________________________________________")
     print("Logistic Regression")
-    model = LogisticRegressionModel(30, train_file, test_file)
+    model = LogisticRegressionModel(train_file, test_file)
     model.commenceTraining()
     
     print("_________________________________________________________________________")
     print("XGBoost")
-    model = XGBoostModel(train_file, test_file, 50, 0.005, 3, 73)
+    model = XGBoostModel(train_file, test_file, 0.6, 50, 0.005, 3, 73)
     model.commenceTraining()
     
     print("_________________________________________________________________________")
     print("Gradient Boosting Machine")
-    model = GradientBoostingMachineModel(train_file, test_file)
+    model = GradientBoostingMachineModel(train_file, test_file, 0.99)
     model.commenceTraining()
     
     print("_________________________________________________________________________")
@@ -424,9 +262,8 @@ def main():
     
     print("_________________________________________________________________________")
     print("Isolated Forest")
-    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
-    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
+    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
+    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
     model = IsolationForestModel(train_file, test_file)
     model.commenceTraining()
 
-main()
