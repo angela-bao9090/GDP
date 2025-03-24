@@ -1,4 +1,4 @@
-#file containing classes for types of ML algorithms
+# File containing classes for following types of ML algorithms:
 # Neural Network (using Logistic Regression)
 # Logistic Regression
 # XGBoost (eXtreme Gradient Boosting)
@@ -6,7 +6,7 @@
 # Random Forest
 # Isolated Forest
 
-# apologies for the messy and hard to read code, this will be cleaned up in the next few days
+# Todo: add randomseeds for pyTorch models for reproducibility
 
 import torch
 from torch import nn

@@ -1,6 +1,3 @@
-# Todo: Comment code 
-
-# Importing libraries
 import torch
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
