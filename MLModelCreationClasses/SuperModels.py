@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
+import time
+import joblib
 
 from DatasetReader import DatasetReader
 from Plot import ConfusionMatrix as PlotCM
@@ -20,7 +22,7 @@ class TorchModel(nn.Module):
     '''
     
     def __init__(self, train_file, test_file, batch_size = 64, threshold = 0.5):
-        # initialise the datasets for use, store the threshold
+        # initialise the datasets for use, store the threshold and batch size
         # Subclass' function will also initialise the model by calling initModel and will generate titles for plotted graphs
         
         super().__init__()
@@ -84,7 +86,6 @@ class TorchModel(nn.Module):
         # Test model using test data, generate confusion matrix to be plotted later, calculate accuracy
         
         self.model.eval()  # Set model to evaluation mode
-        self.y_true = []
         self.y_pred = []
 
         with torch.no_grad():  # No gradients needed during inference
@@ -119,10 +120,19 @@ class TorchModel(nn.Module):
         
         return NotImplemented
         
-    def saveModel(self): # Not yet implemented
+    def saveModel(self): 
         # Allow the model to be saved
         
-        return NotImplemented
+        self.timestamp = time.strftime("%Y%m%d_%H%M%S")
+        self.file_name = f"{self.model_type}Model_{self.timestamp}.pth"
+        
+        self.to_save = {
+            "model": self.model,
+            "threshold": self.threshold,
+            "model_type": "PyTorch"
+        }
+        
+        torch.save(self.to_save, self.file_name)
         
         
         
@@ -139,7 +149,7 @@ class SklearnModel:
     '''
     
     def __init__(self, train_file, test_file, threshold = 0.5):
-        # initialise the datasets for use, store the threshold
+        # initialise the datasets for use, store the threshold and batch size
         # Subclass' function will also initialise the model
         
         self.train_dataset = DatasetReader(csv_file=train_file)
@@ -228,9 +238,16 @@ class SklearnModel:
         
         self.model = self.grid_search.best_estimator_'''
         
-    def saveModel(self): # Not yet implemented
+    def saveModel(self): 
         # Allow the model to be saved
         
-        return NotImplemented
+        self.timestamp = time.strftime("%Y%m%d_%H%M%S")
+        self.file_name = f"{self.model_type}Model_{self.timestamp}.joblib"
         
-  
+        self.to_save = {
+            "model": self.model,
+            "threshold": self.threshold,
+            "model_type": "Sklearn"
+        }   
+        
+        joblib.dump(self.to_save, self.file_name)

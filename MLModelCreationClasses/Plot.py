@@ -38,3 +38,20 @@ class ConfusionMatrix:
 
         plt.tight_layout()
         plt.show()
+        
+        
+        
+class Predictions:
+    def __init__(self, cm):
+
+        fraud_row = cm[0, :]  # This gives you the row corresponding to fraud (1)
+
+        # Plot only the row for "Fraud" predictions (1-row confusion matrix)
+        plt.figure(figsize=(6, 2))  # Adjust the figure size
+        sns.heatmap([fraud_row], annot=True, fmt='d', cmap="Blues", cbar=False,
+                    xticklabels=["Not Fraud", "Fraud"], yticklabels=[""])
+        plt.title("Prediction Results")
+        plt.xlabel('True Label')
+        plt.show()
+        
+        plt.show()

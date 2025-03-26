@@ -4,9 +4,9 @@
 # XGBoost (eXtreme Gradient Boosting)
 # Gradient Boosting
 # Random Forest
-# Isolated Forest
+# Isolation Forest
 
-# Todo: add randomseeds for pyTorch models for reproducibility
+
 
 import torch
 from torch import nn
@@ -35,12 +35,13 @@ class NeuralNetworkModel(TM):
         activation_fn - mathematical operation applied to output of a neuron - introduces non-linearity to the network 
     '''
     
-    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7,
-                 learning_rate=1e-3, epochs=5, momentum=0.9, weight_decay=0.0,
-                 hidden_layer_sizes=[8, 11], dropout_rate=0.2, activation_fn=nn.ReLU):
+    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.75,
+                 learning_rate=1e-3, epochs=8, momentum=0.8, weight_decay=0.0,
+                 hidden_layer_sizes=[8, 8], dropout_rate=0.2, activation_fn=nn.ReLU):
         # Use superclass __init__(), create titles for plots, initiate model
         
         super().__init__(train_file, test_file, batch_size, threshold)
+        self.model_type = "NN" # For filename when saving
         self.titles = []
         for i in range(epochs):
             self.titles.append('Neural Network - Epoch')
@@ -88,10 +89,12 @@ class LogisticRegressionModel(TM):
         weight_decay - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)   
     '''
     
-    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7, learning_rate=1e-3, epochs=5, momentum=0.9, weight_decay=0.0):   
+    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7, 
+                 learning_rate=1e-3, epochs=5, momentum=0.9, weight_decay=0.0):   
         # Use superclass __init__(), create titles for plots, initiate model
          
         super().__init__(train_file, test_file, batch_size, threshold)
+        self.model_type = "LR" # For filename when saving
         self.titles = []
         for i in range(epochs):
             self.titles.append('Logistic Regression - Epoch')
@@ -123,10 +126,9 @@ class XGBoostModel(SKLM):
         n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
         learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
         max depth - max depth of individual trees
-        random_state - seed for random number generation - allows for reproducibility of model
     '''
     
-    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 100, learning_rate = 0.1, max_depth = 3, random_state = 42):
+    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 100, learning_rate = 0.1, max_depth = 3):
         # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
         
         super().__init__(train_file, test_file, threshold)
@@ -134,10 +136,10 @@ class XGBoostModel(SKLM):
         self.model = xgb.XGBClassifier(
             n_estimators=n_estimators,  
             learning_rate=learning_rate,  
-            max_depth=max_depth,  
-            random_state=random_state  
+            max_depth=max_depth,   
         )
         self.supervised = True
+        self.model__type = "XGB"
         self.titles = ["XGBoost"]
         
         
@@ -153,16 +155,16 @@ class GradientBoostingMachineModel(SKLM):
         n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
         learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
         max depth - max depth of individual trees
-        random_state - seed for random number generation - allows for reproducibility of model
     '''
     
-    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42):
+    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators=100, learning_rate=0.1, max_depth=3):
         # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
         
         super().__init__(train_file, test_file, threshold)
         
-        self.model = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth, random_state=random_state)
+        self.model = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth)
         self.supervised = True
+        self.model_type = "GB"
         self.titles = ["Gradient Boosting Machine"]
         
         
@@ -179,16 +181,14 @@ class RandomForestModel(SKLM):
         max depth - max depth of individual trees
         min_samples_split - min number of samples to split an internal node
         min_samples_leaf - minimum samples required to be at a leaf node
-        random_state - seed for random number generation - allows for reproducibility of model
     '''
     
-    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 50, max_depth = 20, min_samples_split = 5, min_samples_leaf = 1, random_state = 42):
+    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 50, max_depth = 20, min_samples_split = 5, min_samples_leaf = 1):
         # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
         
         super().__init__(train_file, test_file, threshold)
 
         self.model = RandomForestClassifier(
-            random_state=random_state,
             oob_score=True,         
             n_jobs=-1,                 
             n_estimators=n_estimators,
@@ -197,6 +197,7 @@ class RandomForestModel(SKLM):
             min_samples_leaf=min_samples_leaf
         )
         self.supervised = True
+        self.model_type = "RF"
         self.titles = ["Random Forest"]
 
 
@@ -210,10 +211,9 @@ class IsolationForestModel(SKLM):
         test_file  - location of dataset file to be used for testing
         contamination - expected proportion of outliers in training data
         n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
-        random_state - seed for random number generation - allows for reproducibility of model
     '''
     
-    def __init__(self, train_file, test_file, contamination = "auto", n_estimators = 50, random_state = 42): 
+    def __init__(self, train_file, test_file, contamination = "auto", n_estimators = 50): 
         # Use superclass __init__(), initiate model, specify NOT a supervised ML algorithm, create titles for plot
         
         super().__init__(train_file, test_file, 1) # 1 is a placeholder value since Isolation Forest doesn't use a threshold
@@ -221,10 +221,10 @@ class IsolationForestModel(SKLM):
         self.model = IsolationForest(
             n_estimators=n_estimators, 
             contamination=contamination,
-            random_state=random_state,
             n_jobs=-1 
         )
         self.supervised = False
+        self.model_type = "IF"
         self.titles = ["Isolation Forest"]
 
         
@@ -239,6 +239,7 @@ def main(): # Test code
     print(" Neural Network using logisstic regression")
     model = NeuralNetworkModel(train_file, test_file)  
     model.commenceTraining() 
+    model.saveModel()
     
     print("_________________________________________________________________________")
     print("Logistic Regression")
@@ -254,6 +255,7 @@ def main(): # Test code
     print("Gradient Boosting Machine")
     model = GradientBoostingMachineModel(train_file, test_file, 0.99)
     model.commenceTraining()
+    model.saveModel()
     
     print("_________________________________________________________________________")
     print("Random Forest")
@@ -261,9 +263,9 @@ def main(): # Test code
     model.commenceTraining()
     
     print("_________________________________________________________________________")
-    print("Isolated Forest")
-    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
-    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
+    print("Isolation Forest")
+    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
+    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
     model = IsolationForestModel(train_file, test_file)
     model.commenceTraining()
-
+    

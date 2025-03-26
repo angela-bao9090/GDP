@@ -41,3 +41,30 @@ class DatasetReader(Dataset): # Inherits from imported Dataset
         sample_target = torch.tensor(self.target[idx], dtype=torch.float32)
 
         return sample_features, sample_target
+    
+    
+    
+class TargetlessDatasetReader(DatasetReader):
+    '''
+    Class for accessing a database, standardizing the data, accessing the data for running a model on 
+    
+    Parameters:
+        file path - location of csv file
+        transform - (if needed) a transform on the data
+    '''
+    def __init__(self, csv_file, transform=None):
+        # Access file, apply standard scalar and transform
+        
+        self.data = pd.read_csv(csv_file)
+        self.transform = transform
+        
+        self.features = self.data.iloc[:, :].values  
+        
+        self.features = StandardScaler().fit_transform(self.features) # Standardising the features and the applying transform
+    
+    def __getitem__(self, idx):
+        # Returns the features in a useful form
+        
+        sample_features = torch.tensor(self.features[idx], dtype=torch.float32)
+
+        return sample_features
