@@ -12,32 +12,38 @@ import torch
 from torch import nn
 import xgboost as xgb
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, IsolationForest
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
 
-from SuperModels import TorchModel as TM, SklearnModel as SKLM
+
+
+from SuperCreateModel import TorchModel as TM, SklearnModel as SKLM
 
     
     
-class NeuralNetworkModel(TM):
+class TorchNeuralNetworkModel(TM):
     '''
     Class for creating a Neural Network which uses Logistic Regression - Inherits from TorchModel in the SuperModels file
     
     Parameters:
-        train_file - location of dataset file to be used for training
-        test_file  - location of dataset file to be used for testing
-        batch_size - number of samples per iteration before updating the models weights
-        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
-        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
-        epochs - number of times training dataset is passed through
-        momentum - allows for faster convergence, but may overshoot
-        weight_decay - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)
+        train_file        - location of dataset file to be used for training
+        test_file         - location of dataset file to be used for testing
+        batch_size        - number of samples per iteration before updating the models weights
+        threshold         - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        learning_rate     - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
+        epochs            - number of times training dataset is passed through
+        momentum          - allows for faster convergence, but may overshoot
+        weight_decay      - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)
         hiden_layer_sizes - sizes of each layer of the Neural Network (also determines number of layers)
-        dropout_rate - scaling of weights when dropout (seting some neurons to zero during each training step) is applied 
-        activation_fn - mathematical operation applied to output of a neuron - introduces non-linearity to the network 
+        dropout_rate      - scaling of weights when dropout (seting some neurons to zero during each training step) is applied 
+        activation_fn     - mathematical operation applied to output of a neuron - introduces non-linearity to the network 
     '''
     
-    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.75,
-                 learning_rate=1e-3, epochs=8, momentum=0.8, weight_decay=0.0,
-                 hidden_layer_sizes=[8, 8], dropout_rate=0.2, activation_fn=nn.ReLU):
+    def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7,
+                 learning_rate=4e-4, epochs=14, momentum=0.95, weight_decay=0.0,
+                 hidden_layer_sizes=[3,2], dropout_rate=0.5, activation_fn=nn.ReLU):
         # Use superclass __init__(), create titles for plots, initiate model
         
         super().__init__(train_file, test_file, batch_size, threshold)
@@ -68,29 +74,32 @@ class NeuralNetworkModel(TM):
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
+        
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.model.to(self.device)
         
         self.epochs = epochs
         
         
-class LogisticRegressionModel(TM):
+        
+class TorchLogisticRegressionModel(TM):
     '''
     Class for creating a Logistic Regression ML algorithm - Inherits from TorchModel in the SuperModels file
     
     Parameters:
-        train_file - location of dataset file to be used for training
-        test_file  - location of dataset file to be used for testing
-        batch_size - number of samples per iteration before updating the models weights
-        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        train_file    - location of dataset file to be used for training
+        test_file     - location of dataset file to be used for testing
+        batch_size    - number of samples per iteration before updating the models weights
+        threshold     - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
         learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
-        epochs - number of times training dataset is passed through
-        momentum - allows for faster convergence, but may overshoot
-        weight_decay - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)   
+        epochs        - number of times training dataset is passed through
+        momentum      - allows for faster convergence, but may overshoot
+        weight_decay  - adds penalty to loss function to stop learnig overly complex/large weights (makes models more simple and less chance of overfitting)   
     '''
     
     def __init__(self, train_file, test_file, batch_size=64, threshold = 0.7, 
-                 learning_rate=1e-3, epochs=5, momentum=0.9, weight_decay=0.0):   
+                 learning_rate=1e-4, epochs=14, momentum=0.95, weight_decay=0.15):   
         # Use superclass __init__(), create titles for plots, initiate model
          
         super().__init__(train_file, test_file, batch_size, threshold)
@@ -115,20 +124,151 @@ class LogisticRegressionModel(TM):
         self.epochs = epochs
         
         
+        
+class NeuralNetwork(SKLM):
+    '''
+    Class for creating a Neural Network (Multilayer Perceptron) ML algorithm - Inherits from Sklearn in the SuperModels file
+    
+    Parameters:
+        train_file           - location of dataset file to be used for training
+        test_file            - location of dataset file to be used for testing
+        threshold            - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        hidden_layer_sizes   - the number of neurons in each hidden layer (tuple of integers)
+        activation_fn        - mathematical operation applied to output of a neuron - introduces non-linearity to the network 
+        solver               - the optimizer algorithm ('adam', 'sgd', etc.)
+        alpha                - regularization term to prevent overfitting (L2 penalty)
+        batch_size           - number of samples per iteration before updating the models weights
+        learning_rate        - how much model weights are adjusted wrt loss gradient - determines step size at each iteration 
+        learning_rate_init   - initial learning rate for the solver
+        max_iter             - maximum number of iterations for the solver to converge
+        early_stopping       - whether to stop training when validation score is not improving
+        momentum             - allows for faster convergence, but may overshoot
+        n_iter_no_change     - number of iterations with no improvement before stopping
+    '''
+    def __init__(self, train_file, test_file, threshold=0.97, 
+                 hidden_layer_sizes=(2,2,2), activation_fn='relu', solver='adam',
+                 alpha=0.0001, batch_size='auto', learning_rate='adaptive', 
+                 learning_rate_init=0.003, max_iter=500, early_stopping=False,
+                 momentum=0.9, n_iter_no_change=10):
+        super().__init__(train_file, test_file, threshold)
+        
+        self.model = MLPClassifier(
+            hidden_layer_sizes=hidden_layer_sizes,
+            activation=activation_fn,
+            solver=solver,
+            alpha=alpha,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            learning_rate_init=learning_rate_init,
+            max_iter=max_iter,
+            early_stopping=early_stopping,
+            momentum=momentum,
+            n_iter_no_change=n_iter_no_change
+        )
+        
+        self.supervised = True
+        self.model_type = "NN"
+        self.titles = ["Neural Network"]
+        
+
+
+class LogisticRegressionModel(SKLM):
+    '''
+    Class for creating a Logistic Regression ML algorithm - Inherits from Sklearn in the SuperModels file
+    
+    Parameters:
+        train_file      - location of dataset file to be used for training
+        test_file       - location of dataset file to be used for testing
+        threshold       - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        C               - regularization strength; smaller values specify stronger regularization
+        max_iter        - maximum number of iterations for the solver to converge
+        solver          - optimization algorithm 
+        penalty         - regularization type 
+        tol             - tolerance for stopping criteria 
+        class_weight    - weights associated with classes to handle imbalanced classes
+        fit_intercept   - whether to include an intercept in the model 
+    '''
+    def __init__(self, train_file, test_file, threshold = 0.91, C=5e-3, max_iter=200, solver='saga', penalty='l1', tol=1e-8, class_weight='balanced', fit_intercept=False):
+        # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
+        
+        super().__init__(train_file, test_file, threshold)
+    
+        self.model = LogisticRegression(
+            C=C,
+            max_iter=max_iter, 
+            solver=solver,
+            penalty=penalty, 
+            tol=tol,
+            class_weight=class_weight, 
+            fit_intercept=fit_intercept 
+        )
+        
+        self.supervised = True
+        self.model_type = "LR"
+        self.titles = ["Logistic Regression"]
+        
+
+
+class NaiveBayes(SKLM):
+    '''
+    Class for creating a Naive Bayes ML algorithm - Inherits from Sklearn in the SuperModels file
+    
+    Parameters:
+        train_file    - location of dataset file to be used for training
+        test_file     - location of dataset file to be used for testing
+        threshold     - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        var_smoothing - variance smoothing parameter to prevent division by zero in Gaussian distribution
+        priors        - the class prior probabilities (default assumes imbalanced classes)
+    '''
+    
+    def __init__(self, train_file, test_file, threshold=0.98, var_smoothing=1e-9, priors=[0.999,0.001]):
+        super().__init__(train_file, test_file, threshold)
+        self.model = GaussianNB(var_smoothing=var_smoothing, priors=priors)
+        self.supervised = True
+        self.model_type = "NaiveBayes"
+        self.titles = ["Naive Bayes"]
+        
+
+
+class GradientBoostingMachineModel(SKLM):
+    '''
+    Class for creating a Gradient Boosting ML algorithm - Inherits from Sklearn in the SuperModels file
+    
+    Parameters:
+        train_file    - location of dataset file to be used for training
+        test_file     - location of dataset file to be used for testing
+        threshold     - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        n_estimators  - number of boosting rounds to be used (higher value usually means more complex model)
+        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
+        max depth     - max depth of individual trees
+    '''
+    
+    def __init__(self, train_file, test_file, threshold = 0.95, n_estimators=100, learning_rate=0.1, max_depth=5):
+        # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
+        
+        super().__init__(train_file, test_file, threshold)
+        
+        self.model = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth)
+        self.supervised = True
+        self.model_type = "GB"
+        self.titles = ["Gradient Boosting Machine"]
+        
+          
+        
 class XGBoostModel(SKLM):
     '''
     Class for creating a eXtreme Gradient Boosting ML algorithm - Inherits from Sklearn in the SuperModels file
     
     Parameters:
-        train_file - location of dataset file to be used for training
-        test_file  - location of dataset file to be used for testing
-        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
-        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
+        train_file    - location of dataset file to be used for training
+        test_file     - location of dataset file to be used for testing
+        threshold     - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        n_estimators  - number of boosting rounds to be used (higher value usually means more complex model)
         learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
-        max depth - max depth of individual trees
+        max depth     - max depth of individual trees
     '''
     
-    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 100, learning_rate = 0.1, max_depth = 3):
+    def __init__(self, train_file, test_file, threshold = 0.95, n_estimators = 100, learning_rate = 0.1, max_depth = 5):
         # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
         
         super().__init__(train_file, test_file, threshold)
@@ -139,48 +279,24 @@ class XGBoostModel(SKLM):
             max_depth=max_depth,   
         )
         self.supervised = True
-        self.model__type = "XGB"
+        self.model_type = "XGB"
         self.titles = ["XGBoost"]
         
-        
-        
-class GradientBoostingMachineModel(SKLM):
-    '''
-    Class for creating a Gradient Boosting ML algorithm - Inherits from Sklearn in the SuperModels file
     
-    Parameters:
-        train_file - location of dataset file to be used for training
-        test_file  - location of dataset file to be used for testing
-        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
-        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
-        learning_rate - how much model weights are adjusted wrt loss gradient - determines step size at each iteration
-        max depth - max depth of individual trees
-    '''
-    
-    def __init__(self, train_file, test_file, threshold = 0.6, n_estimators=100, learning_rate=0.1, max_depth=3):
-        # Use superclass __init__(), initiate model, specify supervised ML algorithm, create titles for plot
-        
-        super().__init__(train_file, test_file, threshold)
-        
-        self.model = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth)
-        self.supervised = True
-        self.model_type = "GB"
-        self.titles = ["Gradient Boosting Machine"]
-        
-        
+            
         
 class RandomForestModel(SKLM):
     '''
     Class for creating a Random Forest ML algorithm - Inherits from Sklearn in the SuperModels file
     
     Parameters:
-        train_file - location of dataset file to be used for training
-        test_file  - location of dataset file to be used for testing
-        threshold - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
-        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
-        max depth - max depth of individual trees
+        train_file        - location of dataset file to be used for training
+        test_file         - location of dataset file to be used for testing
+        threshold         - the decision/cutoff boundary (likelihood of fraud that is flagged as such)
+        n_estimators      - number of boosting rounds to be used (higher value usually means more complex model)
+        max depth         - max depth of individual trees
         min_samples_split - min number of samples to split an internal node
-        min_samples_leaf - minimum samples required to be at a leaf node
+        min_samples_leaf  - minimum samples required to be at a leaf node
     '''
     
     def __init__(self, train_file, test_file, threshold = 0.6, n_estimators = 50, max_depth = 20, min_samples_split = 5, min_samples_leaf = 1):
@@ -207,10 +323,11 @@ class IsolationForestModel(SKLM):
     Class for creating an Isolation Forest ML algorithm - Inherits from Sklearn in the SuperModels file
     
     Parameters:
-        train_file - location of dataset file to be used for training
-        test_file  - location of dataset file to be used for testing
+        train_file    - location of dataset file to be used for training
+        test_file     - location of dataset file to be used for testing
         contamination - expected proportion of outliers in training data
-        n_estimators - number of boosting rounds to be used (higher value usually means more complex model)
+        n_estimators  - number of boosting rounds to be used (higher value usually means more complex model)
+
     '''
     
     def __init__(self, train_file, test_file, contamination = "auto", n_estimators = 50): 
@@ -227,45 +344,72 @@ class IsolationForestModel(SKLM):
         self.model_type = "IF"
         self.titles = ["Isolation Forest"]
 
+
+
+
+
         
         
         
         
 def main(): # Test code
-    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
-    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
+    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTrain.csv"
+    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTest.csv"
+    
+    '''print("_________________________________________________________________________")
+    print(" Neural Network using logisstic regression - PyTorch")
+    model = TorchNeuralNetworkModel(train_file, test_file)  
+    model.commenceTraining() 
+    #model.saveModel()
     
     print("_________________________________________________________________________")
-    print(" Neural Network using logisstic regression")
-    model = NeuralNetworkModel(train_file, test_file)  
-    model.commenceTraining() 
-    model.saveModel()
+    print("Logistic Regression - PyTorch")
+    model = TorchLogisticRegressionModel(train_file, test_file)
+    model.commenceTraining()
+    #model.saveModel()'''
+    
+    print("_________________________________________________________________________")
+    print("Neural Network")
+    model = NeuralNetwork(train_file, test_file)
+    model.commenceTraining()
+    #model.saveModel()
     
     print("_________________________________________________________________________")
     print("Logistic Regression")
     model = LogisticRegressionModel(train_file, test_file)
     model.commenceTraining()
+    #model.saveModel()
     
     print("_________________________________________________________________________")
-    print("XGBoost")
-    model = XGBoostModel(train_file, test_file, 0.6, 50, 0.005, 3, 73)
+    print("Naives Bayes")
+    model = NaiveBayes(train_file, test_file)
     model.commenceTraining()
+    #model.saveModel()
     
     print("_________________________________________________________________________")
     print("Gradient Boosting Machine")
-    model = GradientBoostingMachineModel(train_file, test_file, 0.99)
+    model = GradientBoostingMachineModel(train_file, test_file)
     model.commenceTraining()
-    model.saveModel()
+    #model.saveModel()
+    
+    print("_________________________________________________________________________")
+    print("XGBoost")
+    model = XGBoostModel(train_file, test_file)
+    model.commenceTraining()
+    #model.saveModel()
     
     print("_________________________________________________________________________")
     print("Random Forest")
     model = RandomForestModel(train_file, test_file) 
     model.commenceTraining()
+    #model.saveModel()
     
     print("_________________________________________________________________________")
     print("Isolation Forest")
-    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/creditcard.csv"
-    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/balanced.csv"
+    train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTrain.csv"
+    test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTest.csv"
     model = IsolationForestModel(train_file, test_file)
     model.commenceTraining()
     
+if __name__ == "__main__":
+    main()

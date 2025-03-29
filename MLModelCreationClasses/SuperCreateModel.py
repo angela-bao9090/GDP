@@ -26,9 +26,11 @@ class TorchModel(nn.Module):
         # Subclass' function will also initialise the model by calling initModel and will generate titles for plotted graphs
         
         super().__init__()
+        self.train_file = train_file
+        self.batch_size = batch_size
         
-        self.train_dataset = DatasetReader(csv_file = train_file)
-        self.train_loader = DataLoader(self.train_dataset, batch_size = batch_size, shuffle = True)
+        self.train_dataset = DatasetReader(csv_file = self.train_file, undersample=True)
+        self.train_loader = DataLoader(self.train_dataset, batch_size = self.batch_size, shuffle = True)
         
         self.test_dataset = DatasetReader(csv_file = test_file)
         self.test_loader = DataLoader(self.test_dataset, batch_size = batch_size, shuffle = False)
@@ -109,6 +111,8 @@ class TorchModel(nn.Module):
             print(f"-------------------------------\nEpoch {t+1}\n-------------------------------")
             self.train()
             print(f"Train Loss: {self.train_loss:>7f}")
+            self.train_dataset = DatasetReader(csv_file = self.train_file, undersample=True)
+            self.train_loader = DataLoader(self.train_dataset, batch_size = self.batch_size, shuffle = True)
             self.test()
             print(f"Accuracy: {self.accuracy * 100:.2f}%")   
             self.cms.append(self.cm)
@@ -152,7 +156,8 @@ class SklearnModel:
         # initialise the datasets for use, store the threshold and batch size
         # Subclass' function will also initialise the model
         
-        self.train_dataset = DatasetReader(csv_file=train_file)
+        self.train_dataset = DatasetReader(csv_file = train_file, undersample=True)
+        
         self.X_train = self.train_dataset.features
         self.y_train = self.train_dataset.target
         

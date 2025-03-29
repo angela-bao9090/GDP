@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
+from imblearn.under_sampling import RandomUnderSampler
 
 
 
@@ -13,7 +14,7 @@ class DatasetReader(Dataset): # Inherits from imported Dataset
         file path - location of csv file
         transform - (if needed) a transform on the data
     '''
-    def __init__(self, csv_file, transform=None): 
+    def __init__(self, csv_file, undersample=False, transform=None): 
         # Access file, split columns into features and target, apply standard scalar and transform
         
         self.data = pd.read_csv(csv_file)
@@ -22,12 +23,16 @@ class DatasetReader(Dataset): # Inherits from imported Dataset
         self.features = self.data.iloc[:, :-1].values  # All columns except for the last one
         self.target = self.data.iloc[:, -1].values  # Just the last column
         
+        if undersample:
+            self.undersampler = RandomUnderSampler(sampling_strategy='auto')
+            self.features, self.target = self.undersampler.fit_resample(self.features, self.target)
+            
         self.features = StandardScaler().fit_transform(self.features) # Standardising the features and the applying transform
 
     def __len__(self): 
         # Returns the size of the dataset
         
-        return len(self.data)
+        return len(self.features)
     
     def size(self): 
         # Returns the number of columns in the features
