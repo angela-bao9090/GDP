@@ -1,6 +1,33 @@
 from SuperUseModel import UseModelPyTorch as PTM , UseModelSklearn as SKL
 
+
+
+
+
+
 class UseModel:
+    '''
+    Class for handling and switching between different ML models (PyTorch or Sklearn) based on file type.
+
+
+
+    Attributes:
+        model - The loaded model (could be either PyTorch or Sklearn model)  - object
+       
+       
+       
+    Methods:
+        __init__ - Initializes the class by loading a model file. If the provided model file is invalid, prompts the user to enter a valid one.
+        
+            Parameters:
+                model_file - Path to the model file (can be .pth for PyTorch or .joblib for Sklearn) - str
+
+        ChangeModel - Loads a model based on the provided file type. If the model file is a PyTorch (.pth) file, it loads a PyTorch model. If it's a Sklearn (.joblib) file, it loads an Sklearn model.
+        
+            Parameters:
+                model_file - Path to the model file (can be .pth or .joblib) - str
+    '''
+    
     def __init__(self, model_file):
         self.model = None
         self.ChangeModel(model_file)
@@ -16,6 +43,10 @@ class UseModel:
             self.model = SKL(model_file)
         else:
             print("Error: Invalid model file")
+
+
+
+
 
 
 def main():
@@ -44,6 +75,10 @@ def main():
     current.model.testOnInput()
     current.model.predictOnInput()
     current.model.testOnInput()
+    
+    
+    
+    
     
     
 if __name__ == "__main__":

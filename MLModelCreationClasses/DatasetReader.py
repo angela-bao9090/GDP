@@ -6,17 +6,43 @@ from imblearn.under_sampling import RandomUnderSampler
 
 
 
-class DatasetReader(Dataset): # Inherits from imported Dataset
+
+
+
+class DatasetReader(Dataset):
     '''
-    Class for accessing a database, standardizing the data(excluding the target column), accessing the data for machine learning 
-    
-    Parameters:
-        file path - location of csv file
-        transform - (if needed) a transform on the data
-    '''
-    def __init__(self, csv_file, undersample=False, transform=None): 
-        # Access file, split columns into features and target, apply standard scalar and transform
+    Class for reading and processing a dataset - Inherits from the Dataset class
+
+
+
+    Attributes:
+        data         - The raw data loaded from the CSV file                                                  - DataFrame
+        transform    - A transformation to apply to the features (e.g., scaling, normalization)               - callable (or None)
+        features     - The features extracted from the dataset (all columns except the last one)              - ndarray
+        target       - The target labels extracted from the dataset (last column)                             - ndarray
+        undersampler - An instance of RandomUnderSampler used for balancing the dataset (if undersample=True) - RandomUnderSampler (or None)
+
+
+
+    Methods:
+        __init__ - Initializes the DatasetReader with the provided dataset file and optional transformation settings
         
+            Parameters:
+                csv_file    - The path to the CSV file containing the dataset                                - str
+                undersample - A flag to indicate whether undersampling should be applied for class balancing - bool (optional)
+                transform   - A transformation to apply to the features before returning them                - callable (optional)
+
+        __len__ - Returns the size of the dataset (number of samples)
+
+        size - Returns the number of features (columns) in the dataset
+
+        __getitem__ - Retrieves a specific data sample at the provided index and returns both the features and target
+        
+            Parameters:
+                idx - The index of the sample to retrieve - int
+        '''
+        
+    def __init__(self, csv_file, undersample=False, transform=None): 
         self.data = pd.read_csv(csv_file)
         self.transform = transform
         
@@ -29,19 +55,13 @@ class DatasetReader(Dataset): # Inherits from imported Dataset
             
         self.features = StandardScaler().fit_transform(self.features) # Standardising the features and the applying transform
 
-    def __len__(self): 
-        # Returns the size of the dataset
-        
+    def __len__(self):
         return len(self.features)
     
     def size(self): 
-        # Returns the number of columns in the features
-        
         return self.features.shape[1]
 
     def __getitem__(self, idx): 
-        # Returns the features and target in a useful form
-        
         sample_features = torch.tensor(self.features[idx], dtype=torch.float32)
         sample_target = torch.tensor(self.target[idx], dtype=torch.float32)
 
@@ -51,15 +71,31 @@ class DatasetReader(Dataset): # Inherits from imported Dataset
     
 class TargetlessDatasetReader(DatasetReader):
     '''
-    Class for accessing a database, standardizing the data, accessing the data for running a model on 
-    
-    Parameters:
-        file path - location of csv file
-        transform - (if needed) a transform on the data
-    '''
-    def __init__(self, csv_file, transform=None):
-        # Access file, apply standard scalar and transform
+    Class for accessing a database, standardizing the data, and preparing data for model input - Inherits from DatasetReader
+
+
+
+    Attributes:
+        data      - The raw data loaded from the CSV file                                    - DataFrame
+        transform - A transformation to apply to the features (e.g., scaling, normalization) - callable (or None)
+        features  - The features extracted from the dataset                                  - ndarray
+
+
+
+    Methods:
+        __init__ - Initializes the TargetlessDatasetReader with the provided dataset file and optional transformation settings
         
+            Parameters:
+                csv_file - The path to the CSV file containing the dataset                  - str
+                transform - A transformation to apply to the features before returning them - callable (optional)
+
+        __getitem__ - Retrieves a specific data sample at the provided index and returns the features
+        
+            Parameters:
+                idx - The index of the sample to retrieve - int
+    '''
+    
+    def __init__(self, csv_file, transform=None):
         self.data = pd.read_csv(csv_file)
         self.transform = transform
         
@@ -68,8 +104,6 @@ class TargetlessDatasetReader(DatasetReader):
         self.features = StandardScaler().fit_transform(self.features) # Standardising the features and the applying transform
     
     def __getitem__(self, idx):
-        # Returns the features in a useful form
-        
         sample_features = torch.tensor(self.features[idx], dtype=torch.float32)
 
         return sample_features
