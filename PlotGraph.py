@@ -54,8 +54,16 @@ def genLogisticRegressionGraph():
     plotGraph(0.8,1,False,5, lambda t: Models.LogisticRegressionModel(train_file, test_file,threshold = t),
              "Logistic Regression - Threshold", "Threshold ")
 
+def genNaivesBayes():
+    plotGraph(0.8,1,False, lambda t: Models.NaiveBayes(train_file, test_file,threshold = t),
+              "NaiveBayes - Threshold", "Threshold ")
+    plotGraph(10^-6,10^-12,True, lambda v: Models.NaiveBayes(train_file, test_file,var_smoothing=v),
+              "NaiveBayes - varSmoothing", "varSmoothing")
+
+
 def main():
     genLogisticRegressionGraph()
+    genNaivesBayes()
 
 if __name__ == "__main__":
     main()
