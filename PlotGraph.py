@@ -60,10 +60,20 @@ def genNaivesBayes():
     plotGraph(10^-6,10^-12,True, lambda v: Models.NaiveBayes(train_file, test_file,var_smoothing=v),
               "NaiveBayes - varSmoothing", "varSmoothing")
 
+def genNeuralNetwork():
+    plotGraph(0.8,1,False, lambda m: Models.NeuralNetwork(train_file, test_file, momentum=m),
+              "NeuralNetwork - Momentum", "Momentum")
+    plotGraph(0.95,1,False, lambda t: Models.NeuralNetwork(train_file, test_file,threshold = t),
+              "NueralNetwork - Threshold", "Threshold ")
+    plotGraph(10^-12,10^-2,True, lambda a: Models.NeuralNetwork(train_file, test_file,alpha= a),
+              "NueralNetwork - alpha", "alpha")
+
+
 
 def main():
     genLogisticRegressionGraph()
     genNaivesBayes()
+    genNeuralNetwork()
 
 if __name__ == "__main__":
     main()
