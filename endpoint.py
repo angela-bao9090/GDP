@@ -1,3 +1,6 @@
+# To run this file, use the command:
+# fastapi dev main.py   
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 
