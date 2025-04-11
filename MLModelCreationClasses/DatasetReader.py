@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 from imblearn.under_sampling import RandomUnderSampler
+import numpy as np
 
 
 
@@ -42,19 +43,24 @@ class DatasetReader(Dataset):
                 idx - The index of the sample to retrieve - int
         '''
         
-    def __init__(self, csv_file, undersample=False, transform=None): 
+    def __init__(self, csv_file, undersample=False, scalar=None): 
         self.data = pd.read_csv(csv_file)
-        self.transform = transform
         
         self.features = self.data.iloc[:, :-1].values  # All columns except for the last one
         self.target = self.data.iloc[:, -1].values  # Just the last column
+        
+        self.scalar = scalar
         
         if undersample:
             self.undersampler = RandomUnderSampler(sampling_strategy='auto')
             self.features, self.target = self.undersampler.fit_resample(self.features, self.target)
             
-        self.features = StandardScaler().fit_transform(self.features) # Standardising the features and the applying transform
-
+        if self.scalar == None:
+            self.scalar = StandardScaler()
+            self.features = self.scalar.fit_transform(self.features) 
+        else:
+            self.features = self.scalar.transform(self.features)
+            
     def __len__(self):
         return len(self.features)
     
@@ -67,8 +73,11 @@ class DatasetReader(Dataset):
 
         return sample_features, sample_target
     
+    def getScalar(self):
+        return self.scalar
     
-    
+
+        
 class TargetlessDatasetReader(DatasetReader):
     '''
     Class for accessing a database, standardizing the data, and preparing data for model input - Inherits from DatasetReader
@@ -95,13 +104,18 @@ class TargetlessDatasetReader(DatasetReader):
                 idx - The index of the sample to retrieve - int
     '''
     
-    def __init__(self, csv_file, transform=None):
+    def __init__(self, csv_file, transform=None, scalar=None):
         self.data = pd.read_csv(csv_file)
-        self.transform = transform
+        self.scalar = scalar
+        
         
         self.features = self.data.iloc[:, :].values  
         
-        self.features = StandardScaler().fit_transform(self.features) # Standardising the features and the applying transform
+        if self.scalar == None:
+            self.scalar = StandardScaler()
+            self.features = self.scalar.fit_transform(self.features) 
+        else:
+            self.features = self.scalar.transform(self.features)
     
     def __getitem__(self, idx):
         sample_features = torch.tensor(self.features[idx], dtype=torch.float32)

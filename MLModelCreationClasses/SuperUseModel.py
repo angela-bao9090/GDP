@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import joblib
+from sklearn.preprocessing import PowerTransformer
 
 from DatasetReader import DatasetReader, TargetlessDatasetReader
 from Plot import plotCM, plotP
@@ -113,7 +114,8 @@ class UseModelPyTorch:
 
         self.threshold =  self.model_data["threshold"]
         self.model_type = self.model_data["model_type"]
-        
+        self.scalar = self.model_data["scalar"]
+             
     def setThreshold(self, threshold):
         self.threshold = threshold
         
@@ -122,14 +124,14 @@ class UseModelPyTorch:
         self.y_true = []
     
     def loadTargetlessDatabaseFile(self, csv_file):  # Store appropriate file variables in self
-        self.file_dataset = TargetlessDatasetReader(csv_file = csv_file)
+        self.file_dataset = TargetlessDatasetReader(csv_file = csv_file, scalar = self.scalar)
         
         self.file_loader = DataLoader(self.file_dataset, batch_size = 64, shuffle = False)  # Don't set shuffle true!!!
         
         self.targetless = True
         
     def loadDatabaseFile(self, csv_file):
-        self.file_dataset = DatasetReader(csv_file = csv_file)
+        self.file_dataset = DatasetReader(csv_file = csv_file, scalar = self.scalar)
         
         self.file_loader = DataLoader(self.file_dataset, batch_size = 64, shuffle = False)
         
@@ -182,15 +184,17 @@ class UseModelPyTorch:
         
     def loadTargetlessInput(self, data_points):  # Ensure that input is a 2D array (each row is a separate data point)
         self.features = torch.tensor(data_points, dtype=torch.float32).to(self.device).unsqueeze(0)
+        self.scalar.transform(self.input_features)
         
         self.input_targetless = True
         
     def loadInput(self, data_points):  # Ensure that input is a 2D array (each row is a separate data point)
         input_tensor = torch.tensor(data_points, dtype=torch.float32)
-        
+
         self.input_features = input_tensor[:, :-1]  # All columns except the last one
         self.input_target = input_tensor[:, -1]    # Last column is the target
         
+        self.scalar.transform(self.input_features)
         self.input_targetless = False
         
     def predictOnInput(self):
@@ -208,6 +212,10 @@ class UseModelPyTorch:
 
             if not self.testing:
                 self.cm = confusion_matrix([0]*len(self.y_pred), self.y_pred)
+                if self.cm.shape[1] <2:
+                    self.padded_cm = np.zeros((1, 2), dtype=int)  
+                    self.padded_cm[0, int(self.y_pred[0])] = self.cm[0, 0]     
+                    self.cm = self.padded_cm
                 plotP(self.cm)
                 self.resetStored()
 
@@ -221,6 +229,21 @@ class UseModelPyTorch:
             self.y_true.extend(self.input_target)
             self.cm = confusion_matrix(self.y_true, self.y_pred)
             
+            if self.cm.shape[0] < 2 or self.cm.shape[1] < 2:
+                # Initialize a 2x2 confusion matrix with zeros
+                self.padded_cm = np.zeros((2, 2), dtype=int)
+            
+                if self.cm.shape == (1, 1):
+                    self.padded_cm[int(self.y_true[0]), int(self.y_pred[0])] = self.cm[0, 0]  # Fill in the single value into the [0, 0] position of the padded matrix
+                elif self.cm.shape == (1, 2):  # If it's a 1x2 matrix (this can happen if we predicted both classes, but one class was not predicted)
+                    self.padded_cm[int(self.y_true[0]), 0] = self.cm[0, 0]
+                    self.padded_cm[int(self.y_true[0]), 1] = self.cm[0, 1]
+                elif self.cm.shape == (2, 1):  # If it's a 2x1 matrix (this can happen if both classes were predicted, but not both)
+                    self.padded_cm[0, int(self.y_pred[0])] = self.cm[0, 0]
+                    self.padded_cm[1, int(self.y_pred[0])] = self.cm[1, 0]
+                
+                self.cm = self.padded_cm
+                
             self.testing = False
             
             self.accuracy = (self.cm[0, 0] + self.cm[1, 1]) / self.cm.sum()
@@ -320,6 +343,7 @@ class UseModelSklearn:
 
         self.threshold =  self.model_data["threshold"]
         self.model_type = self.model_data["model_type"]
+        self.scalar = self.model_data["scalar"]
         
     def setThreshold(self, threshold):
         self.threshold = threshold
@@ -329,12 +353,12 @@ class UseModelSklearn:
         self.y_true = []
         
     def loadTargetlessDatabaseFile(self, csv_file):  # Store appropriate file variables in self
-        self.features = TargetlessDatasetReader(csv_file = csv_file)
+        self.features = TargetlessDatasetReader(csv_file = csv_file, scalar = self.scalar)
         
         self.targetless = True
     
     def loadDatabaseFile(self, csv_file):
-        self.file_dataset = DatasetReader(csv_file = csv_file)
+        self.file_dataset = DatasetReader(csv_file = csv_file, scalar = self.scalar)
         
         self.X_file = self.file_dataset.features
         self.y_file = self.file_dataset.target
@@ -354,9 +378,9 @@ class UseModelSklearn:
     
         
             if not self.testing:
-                    self.cm = confusion_matrix([0]*len(self.y_pred), self.y_pred)
-                    plotP(self.cm)
-                    self.resetStored()   
+                self.cm = confusion_matrix([0]*len(self.y_pred), self.y_pred)
+                plotP(self.cm)
+                self.resetStored()   
     
     def testOnFile(self):
         if self.targetless:
@@ -374,12 +398,14 @@ class UseModelSklearn:
             plotCM([self.cm], ["Model Test Results"])         
             
     def loadTargetlessInput(self, data_points):  # Ensure that input is a 2D array (each row is a separate data point)
-        self.input_features = np.array(data_points)  
+        self.input_features = np.array(data_points) 
+        self.input_features = self.scalar.transform(self.input_features) 
         self.input_targetless = False
             
     def loadInput(self, data_points):  # Ensure that input is a 2D array (each row is a separate data point)
         self.data_points = np.array(data_points)
         self.input_features = self.data_points[:, :-1]
+        self.input_features = self.scalar.transform(self.input_features)
         self.input_target = self.data_points[:, -1]
         self.input_targetless = False
         
@@ -391,11 +417,16 @@ class UseModelSklearn:
                 self.resetStored()
                 
             y_prob = self.model.predict_proba(self.input_features)[:, 1]  
+            print(f"probability of fraud: {y_prob}")
             self.y_pred.extend((y_prob >= self.threshold).astype(int))
             
-
+          
             if not self.testing:
-                self.cm = confusion_matrix([0]*len(self.y_pred), self.y_pred)                
+                self.cm = confusion_matrix([0]*len(self.y_pred), self.y_pred)
+                if self.cm.shape[1] <2:
+                    self.padded_cm = np.zeros((1, 2), dtype=int)  
+                    self.padded_cm[0, int(self.y_pred[0])] = self.cm[0, 0]     
+                    self.cm = self.padded_cm
                 plotP(self.cm)
                 self.resetStored()
     
@@ -408,7 +439,20 @@ class UseModelSklearn:
             self.predictOnInput()
             self.y_true.extend(self.input_target)
             self.cm = confusion_matrix(self.y_true, self.y_pred)
+            if self.cm.shape[0] < 2 or self.cm.shape[1] < 2:
+                # Initialize a 2x2 confusion matrix with zeros
+                self.padded_cm = np.zeros((2, 2), dtype=int)
             
+                if self.cm.shape == (1, 1):
+                    self.padded_cm[int(self.y_true[0]), int(self.y_pred[0])] = self.cm[0, 0]  # Fill in the single value into the [0, 0] position of the padded matrix
+                elif self.cm.shape == (1, 2):  # If it's a 1x2 matrix (this can happen if we predicted both classes, but one class was not predicted)
+                    self.padded_cm[int(self.y_true[0]), 0] = self.cm[0, 0]
+                    self.padded_cm[int(self.y_true[0]), 1] = self.cm[0, 1]
+                elif self.cm.shape == (2, 1):  # If it's a 2x1 matrix (this can happen if both classes were predicted, but not both)
+                    self.padded_cm[0, int(self.y_pred[0])] = self.cm[0, 0]
+                    self.padded_cm[1, int(self.y_pred[0])] = self.cm[1, 0]
+                
+                self.cm = self.padded_cm
             self.testing = False
             
             self.accuracy = (self.cm[0, 0] + self.cm[1, 1]) / self.cm.sum()

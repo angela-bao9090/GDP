@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import xgboost as xgb
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, IsolationForest
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from catboost import CatBoostClassifier
@@ -284,10 +284,10 @@ class NeuralNetwork(SKLM):
         saveModel - Saves the model, its threshold, and type into a file with a timestamped name
         '''
         
-    def __init__(self, train_file, test_file, threshold=0.97, 
-                 hidden_layer_sizes=(2,2,2), activation_fn='relu', solver='adam',
+    def __init__(self, train_file, test_file, threshold=0.7, 
+                 hidden_layer_sizes=(4,3), activation_fn='relu', solver='adam',
                  alpha=0.0001, batch_size='auto', learning_rate='adaptive', 
-                 learning_rate_init=0.003, max_iter=500, early_stopping=False,
+                 learning_rate_init=0.003, max_iter=500, early_stopping=True,
                  momentum=0.9, n_iter_no_change=10):
         
         super().__init__(train_file, test_file, threshold)
@@ -368,7 +368,7 @@ class LogisticRegressionModel(SKLM):
         saveModel - Saves the model, its threshold, and type into a file with a timestamped name
     '''
     
-    def __init__(self, train_file, test_file, threshold = 0.91, C=5e-3, max_iter=200, solver='saga', penalty='l1', tol=1e-8, class_weight='balanced', fit_intercept=False):
+    def __init__(self, train_file, test_file, threshold = 0.7, C=5e-3, max_iter=200, solver='saga', penalty='l1', tol=1e-8, class_weight='balanced', fit_intercept=False):
         super().__init__(train_file, test_file, threshold)
     
         self.model = LogisticRegression(
@@ -785,10 +785,20 @@ class IsolationForestModel(SKLM):
 
 
 
+class SGDClassifierModel(SKLM): #need to comment
+    def __init__(self, train_file, test_file, threshold=0.95, alpha=0.0001, max_iter=1000):
+        
+        super().__init__(train_file, test_file, threshold)
+        
+        self.model = SGDClassifier(loss='log_loss', alpha=alpha, max_iter=max_iter)
+        
+        self.supervised = True
+        self.model_type = 'SGD Classifier'
+        self.titles = ["SGD Classifier"]
 
 
                 
-def main():  # Test code
+def main():  # Example code
     train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTrain.csv"
     test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTest.csv"
     
@@ -820,6 +830,12 @@ def main():  # Test code
     print("Naives Bayes")
     model = NaiveBayes(train_file, test_file)
     model.commenceTraining()
+    #model.saveModel()
+    
+    print("_________________________________________________________________________")
+    print("Stochastic Gradient Descent model")
+    model = SGDClassifierModel(train_file, test_file)
+    model.commenceTraining() 
     #model.saveModel()
     
     print("_________________________________________________________________________")

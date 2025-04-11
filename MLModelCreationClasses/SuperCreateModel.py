@@ -74,8 +74,9 @@ class TorchModel(nn.Module):
         
         self.train_dataset = DatasetReader(csv_file = self.train_file, undersample=True)
         self.train_loader = DataLoader(self.train_dataset, batch_size = self.batch_size, shuffle = True)
+        self.scalar = self.train_dataset.getScalar()
         
-        self.test_dataset = DatasetReader(csv_file = test_file)
+        self.test_dataset = DatasetReader(csv_file = test_file, scalar = self.scalar)
         self.test_loader = DataLoader(self.test_dataset, batch_size = batch_size, shuffle = False)
         
         self.threshold = threshold
@@ -87,7 +88,6 @@ class TorchModel(nn.Module):
         #        super().__init__(train_file, test_file)
         #        self.titles = [titles for graphs]
         #        self.initModel(hyperParameters) 
-        
         
     def initModel(self): 
         # Load the model, choose loss function, choose optimizer, choose device to run on
@@ -105,7 +105,6 @@ class TorchModel(nn.Module):
         #   self.device = # Devices to use for model (Server, CPU, etc. )
         #   self.model = self.model.to(self.device)  
         
-
     def train(self):
         self.model.train() # Set model to training mode
         
@@ -148,7 +147,7 @@ class TorchModel(nn.Module):
             print(f"-------------------------------\nEpoch {t+1}\n-------------------------------")
             self.train()
             print(f"Train Loss: {self.train_loss:>7f}")
-            self.train_dataset = DatasetReader(csv_file = self.train_file, undersample=True)
+            self.train_dataset = DatasetReader(csv_file = self.train_file, undersample=True, scalar = self.scalar)
             self.train_loader = DataLoader(self.train_dataset, batch_size = self.batch_size, shuffle = True)
             self.test()
             print(f"Accuracy: {self.accuracy * 100:.2f}%")   
@@ -163,7 +162,8 @@ class TorchModel(nn.Module):
         self.to_save = {
             "model": self.model,
             "threshold": self.threshold,
-            "model_type": "PyTorch"
+            "model_type": "PyTorch",
+            "scalar": self.scalar
         }
         
         torch.save(self.to_save, self.file_name)
@@ -220,8 +220,9 @@ class SklearnModel:
         
         self.X_train = self.train_dataset.features
         self.y_train = self.train_dataset.target
+        self.scalar = self.train_dataset.getScalar()
         
-        self.test_dataset = DatasetReader(csv_file=test_file)
+        self.test_dataset = DatasetReader(csv_file=test_file, scalar=self.scalar)
         self.X_test = self.test_dataset.features
         self.y_test = self.test_dataset.target
         
@@ -248,7 +249,7 @@ class SklearnModel:
 
         self.cm = confusion_matrix(self.y_test, self.y_pred)
         
-        self.accuracy = (self.cm[0, 0] + self.cm[1, 1]) / self.cm.sum()       
+        self.accuracy = (self.cm[0, 0] + self.cm[1, 1]) / self.cm.sum()     
         
     def commenceTraining(self):        
         self.train()
@@ -291,7 +292,8 @@ class SklearnModel:
         self.to_save = {
             "model": self.model,
             "threshold": self.threshold,
-            "model_type": "Sklearn"
+            "model_type": "Sklearn",
+            "scalar": self.scalar
         }   
         
         joblib.dump(self.to_save, self.file_name)
