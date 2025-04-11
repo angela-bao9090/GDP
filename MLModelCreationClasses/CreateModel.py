@@ -5,6 +5,7 @@ from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier,
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
+from catboost import CatBoostClassifier
 
 from SuperCreateModel import TorchModel as TM, SklearnModel as SKLM
 
@@ -126,7 +127,7 @@ class TorchNeuralNetworkModel(TM):
         
         self.epochs = epochs
         
-        
+
         
 class TorchLogisticRegressionModel(TM):
     '''
@@ -308,8 +309,8 @@ class NeuralNetwork(SKLM):
         self.supervised = True
         self.model_type = "NN"
         self.titles = ["Neural Network"]
-        
 
+            
 
 class LogisticRegressionModel(SKLM):
     '''
@@ -572,7 +573,82 @@ class XGBoostModel(SKLM):
         self.model_type = "XGB"
         self.titles = ["XGBoost"]
         
-         
+
+
+class CatBoostModel(SKLM):
+    '''
+    Class for creating an CatBoost ML algorithm - Inherits from Sklearn in the SuperModels file
+
+
+
+    Attributes:
+        model_type    - Type of model (used for saving filename)                                        - str
+        titles        - List of titles for the plots (one for each epoch)                               - list
+        model         - The machine learning model                                                      - XGBClassifier
+        supervised    - Indicates whether the model is supervised (True for this model)                 - bool
+        train_file    - Location of dataset file to be used for training                                - str
+        test_file     - Location of dataset file to be used for testing                                 - str
+        threshold     - The decision/cutoff boundary (likelihood of fraud that is flagged as such)      - float
+        train_dataset - The training dataset object after reading the training file                     - DatasetReader
+        X_train       - Features for training data                                                      - ndarray
+        y_train       - Target labels for training data                                                 - ndarray
+        test_dataset  - The testing dataset object after reading the test file                          - DatasetReader
+        X_test        - Features for test data                                                          - ndarray
+        y_test        - Target labels for test data                                                     - ndarray
+        y_prob        - Predicted probabilities for positive class (if applicable)                      - ndarray
+        y_pred        - Predicted labels (0 or 1) after applying threshold (for classification)         - ndarray
+        cm            - Confusion matrix generated during the testing phase                             - ndarray
+        accuracy      - The accuracy of the model on the test dataset                                   - float
+        cms           - List of confusion matrices collected during training and testing for each epoch - list
+        timestamp     - Timestamp used to generate unique filenames for saved models                    - str
+        file_name     - Filename for saving the model with timestamp                                    - int
+
+
+
+    Methods:
+        __init__ - Initializes the eXtreme Gradient Boosting model with given parameters and prepares the model for training
+        
+            Parameters:
+                train_file    - Location of dataset file to be used for training                                                               - str
+                test_file     - Location of dataset file to be used for testing                                                                - str
+                threshold     - The decision/cutoff boundary (likelihood of fraud that is flagged as such)                                     - float (optional)
+                iterations    - The number of boosting iterations for the model training                                                       - int (optional)
+                learning_rate - How much model weights are adjusted with respect to loss gradient - determines the step size at each iteration - float (optional)
+                depth         - The maximum depth of the decision trees used in boosting                                                       - int (optional)   
+                l2_leaf_reg   - L2 regularization term for the leaf nodes to prevent overfitting                                               - float (optional)
+                subsample     - Fraction of the data to be used for training each tree (controls overfitting)                                  - float (optional)
+        
+        
+        train - Trains the model using the training dataset
+        
+        test - Evaluates the model's performance on the test dataset and calculates accuracy and confusion matrix
+        
+        commenceTraining - Runs the training and testing phases, outputs the results as confusion matrices at the end
+        
+        tuning (Not Implemented) - Placeholder method to be implemented for hyperparameter tuning to find the best model configuration
+        
+        saveModel - Saves the model, its threshold, and type into a file with a timestamped name
+    '''
+    
+    def __init__(self, train_file, test_file, threshold=0.95, iterations=500, learning_rate=0.009, depth=6, 
+                 l2_leaf_reg=3, subsample=1):
+        
+        super().__init__(train_file, test_file, threshold)
+        
+        self.model = CatBoostClassifier(
+            iterations=iterations, 
+            learning_rate=learning_rate, 
+            depth=depth,
+            l2_leaf_reg=l2_leaf_reg,
+            subsample=subsample,
+            verbose=0  
+        )
+        
+        self.supervised = True
+        self.model_type = 'CatBoost'
+        self.titles = ["CatBoost"]
+        
+                 
         
 class RandomForestModel(SKLM):
     '''
@@ -716,7 +792,7 @@ def main():  # Test code
     train_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTrain.csv"
     test_file = "/Users/connorallan/Desktop/DOJO_project/ML/DataSets/fraudTest.csv"
     
-    print("_________________________________________________________________________")
+    '''print("_________________________________________________________________________")
     print(" Neural Network using logisstic regression - PyTorch")
     model = TorchNeuralNetworkModel(train_file, test_file)  
     model.commenceTraining() 
@@ -726,12 +802,12 @@ def main():  # Test code
     print("Logistic Regression - PyTorch")
     model = TorchLogisticRegressionModel(train_file, test_file)
     model.commenceTraining()
-    #model.saveModel()
+    #model.saveModel()'''
     
     print("_________________________________________________________________________")
     print("Neural Network")
     model = NeuralNetwork(train_file, test_file)
-    model.commenceTraining()
+    model.commenceTraining() 
     #model.saveModel()
     
     print("_________________________________________________________________________")
@@ -756,6 +832,12 @@ def main():  # Test code
     print("XGBoost")
     model = XGBoostModel(train_file, test_file)
     model.commenceTraining()
+    #model.saveModel()
+    
+    print("_________________________________________________________________________")
+    print("CatBoost")
+    model = CatBoostModel(train_file, test_file)
+    model.commenceTraining() 
     #model.saveModel()
     
     print("_________________________________________________________________________")
