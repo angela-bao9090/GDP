@@ -517,4 +517,18 @@ class UseModelIsolationForest:
 
         if anomaly_score >= anomaly_threshold:
             assumed_fraud = True
+
+
+
+
+
+# array1=  [1,2,3,4,5]
+# array1[2] = 7
+# print(array1)
+
+#vs
+
+# array1 = [1,2,3,4,5]
+# array1 = [1,2,7,4,5]
+# print(array1)
         
