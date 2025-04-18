@@ -466,6 +466,7 @@ class UseModelIsolationForest:
 
     def merchantInput(self, df, merchant, day, model, scalar, iso_model):
         #def __init__(self, df, model, scalar, iso_model):
+            #self.model = model, self.df = df, etc.
         assumed_fraud = False
         
         anomaly_threshold = 0.7
