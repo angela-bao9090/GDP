@@ -479,8 +479,8 @@ class UseModelIsolationForest:
         daily_transactions = df[(df['merchant'] == merchant) & (df['day'] == day)]
 
         features = daily_transactions.drop(columns=['merchant', 'day', 'label'], errors='ignore')
-        features = self.scalar.transform(features)  # Scale features
-        probs = self.model.predict_proba(features)[:, 1]  # Calculates raw fraud probabilities
+        features = scalar.transform(features)  # Scale features
+        probs = smodel.predict_proba(features)[:, 1]  # Calculates raw fraud probabilities
         max_fraud = np.max(probs)
         mean_fraud = np.mean(probs)
         median_fraud = np.median(probs)
