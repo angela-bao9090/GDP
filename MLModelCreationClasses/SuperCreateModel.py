@@ -362,6 +362,8 @@ class IsolationForestModel:
 
     def trainIsolationForest(self, summary_df):
         contamination = 0.01
+        #scalar = StandardScalar()
+        #new_data = scalar.FitTransform(data)
         features = summary_df.drop(columns = (['merchant', 'day']))
         iso_model = IsolationForest(contaminatino = contamination, n_jobs = -1)
         iso_model.fit(features)
