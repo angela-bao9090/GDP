@@ -4,10 +4,12 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 import time
 import joblib
-
+import numpy as np
+from collections import defaultdict
+import pandas as pd
 from DatasetReader import DatasetReader
 from Plot import plotCM
-
+from sklearn.ensemble import IsolationForest
 
 
 
@@ -297,3 +299,70 @@ class SklearnModel:
         }   
         
         joblib.dump(self.to_save, self.file_name)
+
+class IsolationForestModel:
+    # write comments
+
+
+    def buildDailySummary(self, df, model, scalar):
+        daily_transactions = defaultdict(lambda: defaultdict(dict))
+        grouped = df.groupby(['merchant', 'day'])
+        for (merchant, day), group in grouped:
+            features = group.drop(columns=['merchant', 'day', 'label'], errors='ignore')
+            features = scalar.transform(features) 
+            # not sure if scaling is needed, but have seen it in some other functions
+            # now calculating relevant statistics
+            probs = model.predict_proba(features)[:, 1]
+            count = len(probs)
+            max_fraud = np.max(probs)
+            mean_fraud = np.mean(probs)
+            std_dvt_fraud = np.std(probs)
+            median_fraud = np.median(probs)
+
+            amounts = group['amount'].values
+            times = group['time'].values
+
+            # need to see what the actual column names are for amount spent and timem
+
+            odd_hours = (times >= 23) | (times <= 6)    
+            odd_hour_count = np.sum(odd_hours)
+
+            mean_spend = np.mean(amounts)
+            max_spend = np.max(amounts)
+            std_dvt_spend = np.std(amounts)
+
+            daily_transactions[merchant][day] = {
+                'num_transactions': count,
+                'mean_fraud': mean_fraud,
+                'max_fraud': max_fraud,
+                'std_dvt_fraud': std_dvt_fraud,
+                'median_fraud': median_fraud,
+                'mean_spend': mean_spend,
+                'max_spend': max_spend,
+                'std_dvt_spend': std_dvt_spend,
+                'odd_hour_transactions': odd_hour_count
+
+                # We can add more things here but need to decide on what is relevant
+            }
+
+        return daily_transactions
+
+    def daily_to_df(self, daily_transactions):
+        rows = []
+
+        for merchant, days in daily_transactions.items():
+            for day, stats in days.items():
+                # Create a flat dictionary for each merchant/day
+                row = {'merchant': merchant, 'day': day}
+                row.update(stats)  # Add all the summary stats
+                rows.append(row)
+
+        summary_df = pd.DataFrame(rows)
+        return summary_df
+
+    def trainIsolationForest(self, summary_df):
+        contamination = 0.01
+        features = summary_df.drop(columns = (['merchant', 'day']))
+        iso_model = IsolationForest(contaminatino = contamination, n_jobs = -1)
+        iso_model.fit(features)
+        return iso_model, features

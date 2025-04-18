@@ -4,7 +4,7 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 import joblib
 from sklearn.preprocessing import PowerTransformer
-
+from sklearn.ensemble import IsolationForest
 from DatasetReader import DatasetReader, TargetlessDatasetReader
 from Plot import plotCM, plotP
 
@@ -429,7 +429,10 @@ class UseModelSklearn:
                     self.cm = self.padded_cm
                 plotP(self.cm)
                 self.resetStored()
-    
+
+
+
+
     def testOnInput(self):
         if self.input_targetless:
             pass
@@ -458,3 +461,56 @@ class UseModelSklearn:
             self.accuracy = (self.cm[0, 0] + self.cm[1, 1]) / self.cm.sum()
             print(f"Accuracy: {self.accuracy * 100:.2f}%")
             plotCM([self.cm], ["Model Test Results"])
+
+class UseModelIsolationForest:
+
+    def merchantInput(self, df, merchant, day, model, scalar, iso_model):
+        assumed_fraud = False
+        
+        anomaly_threshold = 0.7
+        # min threshold for anomaly - if anomaly score is greater than this, we should possibly flag it as fraud
+        max_fraud_threshold = 0.8
+        mean_fraud_threshold = 0.6
+        odd_hour_ratio_threshold = 0.4
+
+
+        # model is the model to calculate individual fraud probabilities, and then iso_model is the isolation forest
+
+        daily_transactions = df[(df['merchant'] == merchant) & (df['day'] == day)]
+
+        features = daily_transactions.drop(columns=['merchant', 'day', 'label'], errors='ignore')
+        features = self.scalar.transform(features)  # Scale features
+        probs = self.model.predict_proba(features)[:, 1]  # Calculates raw fraud probabilities
+        max_fraud = np.max(probs)
+        mean_fraud = np.mean(probs)
+        median_fraud = np.median(probs)
+        std_fraud = np.std(probs)
+        num_transactions = len(probs)
+
+        if max_fraud >= max_fraud_threshold or mean_fraud >= mean_fraud_threshold:
+            assumed_fraud = True
+
+        amounts = group['amount'].values
+        times = group['time'].values
+
+        # need to see what the actual column names are for amount spent and timem
+        odd_hours = (times >= 23) | (times <= 6)    
+        odd_hour_count = np.sum(odd_hours)
+        odd_hour_ratio = odd_hour_count/num_transactions
+
+        if odd_hour_ratio >= odd_hour_ratio_threshold:
+            assumed_fraud = True
+
+
+        mean_spend = np.mean(amounts)
+        max_spend = np.max(amounts)
+        std_dvt_spend = np.std(amounts)
+
+        features = np.array([[num_transactions, mean_fraud, max_fraud, std_fraud, median_fraud, mean_spend, max_spend, std_dvt_spend, odd_hour_count]])
+
+        anomaly_score = 1 - iso_model.score_samples(features)[0]
+        # approximate probability for being fraud 
+
+        if anomaly_score >= anomaly_threshold:
+            assumed_fraud = True
+        
