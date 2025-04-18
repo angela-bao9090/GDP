@@ -465,6 +465,7 @@ class UseModelSklearn:
 class UseModelIsolationForest:
 
     def merchantInput(self, df, merchant, day, model, scalar, iso_model):
+        #def __init__(self, df, model, scalar, iso_model):
         assumed_fraud = False
         
         anomaly_threshold = 0.7
@@ -476,6 +477,7 @@ class UseModelIsolationForest:
 
         # model is the model to calculate individual fraud probabilities, and then iso_model is the isolation forest
 
+        #def dailyTransactions(self, day, merchant):
         daily_transactions = df[(df['merchant'] == merchant) & (df['day'] == day)]
 
         features = daily_transactions.drop(columns=['merchant', 'day', 'label'], errors='ignore')
@@ -487,6 +489,7 @@ class UseModelIsolationForest:
         std_fraud = np.std(probs)
         num_transactions = len(probs)
 
+        # def doCalculations(self):
         if max_fraud >= max_fraud_threshold or mean_fraud >= mean_fraud_threshold:
             assumed_fraud = True
 
