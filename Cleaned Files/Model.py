@@ -1,5 +1,3 @@
-import os
-
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.preprocessing import StandardScaler
@@ -8,6 +6,7 @@ from Plot import plotCM, plotP
 import numpy as np
 import joblib
 import time
+import os
 
 
 def undersample(data):

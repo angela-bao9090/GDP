@@ -1,8 +1,8 @@
-import time
 from DbConnection import DbConnection, database
 from Transaction import Transaction
 import asyncio
 import aiohttp
+import time
 
 db = DbConnection(database)
 
