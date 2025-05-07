@@ -55,12 +55,7 @@ class Model(ABC):
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         file_name = f"{self.modelType}Model-{timestamp}.joblib"
         folder_path = os.path.join(os.getcwd(), "Saved Models", file_name)
-        to_save = {
-            "model": self.model,
-            "threshold": self.threshold,
-            "scalar": self.scalar
-        }
-        joblib.dump(to_save, folder_path)
+        joblib.dump(self, folder_path)
 
     def resetStored(self):
         self.yPred = []

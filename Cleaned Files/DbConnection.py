@@ -43,6 +43,17 @@ class DbConnection:
             for row in rows
         ]
 
+    async def getOrderedTrainingData(self):
+        query = "SELECT * FROM train ORDER BY merchant, unix_time"
+        rows = await self.db.fetch_all(query=query)
+        return [
+            Transaction(
+                merchId=row[0], amount=row[1], zip=row[2], lat=row[3], long=row[4],
+                cityPop=row[5], unixTime=row[6], merchLat=row[7], merchLong=row[8], isFraud=row[9]
+            ).toArray()
+            for row in rows
+        ]
+
     async def runQuery(self, fetchOne: bool, query: str):
         if fetchOne:
             return await self.db.fetch_one(query=query)

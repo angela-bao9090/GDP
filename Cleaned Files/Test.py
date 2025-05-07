@@ -12,6 +12,11 @@ async def sendTransaction(session, url, transaction: Transaction):
         return await response.json()
 
 
+async def getCM(session, url):
+    async with session.post(url) as response:
+        return await response.json()
+
+
 async def sendAllTransactions(transactions, url):
     start_time = time.time()
     async with aiohttp.ClientSession() as session:
