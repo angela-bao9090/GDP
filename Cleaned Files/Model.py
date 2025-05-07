@@ -43,7 +43,7 @@ class Model(ABC):
     def train(self):
         self.model.fit(self.features, self.target)
 
-    def commenceTraining(self, trainingData, testData):
+    def commenceTraining(self, trainingData: [list[str | float]], testData: [list[str | float]]):
         self.loadTargeted(trainingData, False)
         self.train()
         self.resetStored()
@@ -122,3 +122,10 @@ class Model(ABC):
 
     def getCM(self):
         plotCM([self.cm], ["Model Test Results"])
+
+    def testTransaction(self, transaction: [str | float]):
+        self.loadTargeted(transaction)
+        self.test()
+        status = "Fraud" if self.yPred[0] == 1 else "Not Fraud"
+        self.resetStored()
+        return status
