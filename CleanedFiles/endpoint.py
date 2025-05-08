@@ -81,7 +81,7 @@ async def get_report(merchant: str, date: str):
 
 @app.post("/check-fraudulent-status")
 async def check_transaction(transaction: Transaction):
-    await modelLock.acquirePassiveLock()
+    await modelLock.acquireActiveLock()
     try:
         # modelCopy = copy.deepcopy(model)
         # status = modelCopy.testTransaction(transaction.toArray()[1:])
@@ -90,7 +90,7 @@ async def check_transaction(transaction: Transaction):
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Error checking transaction: {err}")
     finally:
-        await modelLock.releasePassiveLock()
+        await modelLock.acquireActiveLock()
 
 
 @app.post("/load-model")
