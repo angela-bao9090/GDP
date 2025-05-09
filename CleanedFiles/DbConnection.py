@@ -23,7 +23,7 @@ class DbConnection:
         self.db = db
 
     async def getTestData(self):
-        query = "SELECT * FROM test"
+        query = "SELECT * FROM test;"
         rows = await self.db.fetch_all(query=query)
         return np.array([
             TargetedTransaction(
@@ -34,7 +34,7 @@ class DbConnection:
         ], dtype=object)
 
     async def getOrderedTrainingData(self):
-        query = "SELECT * FROM train ORDER BY merchant, unix_time"
+        query = "SELECT * FROM train ORDER BY merchant, unix_time LIMIT 10000;"
         rows = await self.db.fetch_all(query=query)
         return np.array([
             TargetedTransaction(
@@ -44,10 +44,16 @@ class DbConnection:
             for row in rows
         ], dtype=object)
 
+    async def runQuery(self, fetchOne: bool, query: str):
+        if fetchOne:
+            return await self.db.fetch_one(query=query)
+        else:
+            return await self.db.fetch_all(query=query)
+
     async def storeTransaction(self, transaction: TargetedTransaction):
         query = "INSERT INTO transactions (merchId, amount, zip, lat, long, cityPop, unixTime, merchLat, merchLong, " \
                 "isFraud) VALUES (:merchId, :amount, :zip, :lat, :long, :cityPop, :unixTime, :merchLat, :merchLong, " \
-                ":isFraud) "
+                ":isFraud); "
 
         values = {
             "merchId": transaction.merchId,

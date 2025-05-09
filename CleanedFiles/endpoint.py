@@ -1,10 +1,10 @@
 # To run this file, use the command:
 # fastapi dev endpoint.py
+from Transaction import Transaction, TargetedTransaction
 from IsolationForestModel import IsolationForestModel
 from DbConnection import DbConnection, database
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from Transaction import Transaction
 from Model import undersample
 from Models import getModel
 from Model import Model
@@ -53,7 +53,7 @@ async def startup():
         del modelTrainingData
 
         isolationForest = IsolationForestModel(model)
-        isolationForest.buildForest(forestTrainingData)
+        await isolationForest.buildForest(forestTrainingData)
 
         print("Isolation Forest Built")
     except Exception as err:
@@ -91,12 +91,13 @@ async def get_report(merchant: str, date: str):
 async def check_transaction(transaction: Transaction):
     await modelLock.acquireActiveLock()
     try:
-        status = model.predict(transaction.toArray()[1:], False)
+        input = np.array([transaction.toArray()[1:9]], dtype=float)
+        status = "Fraud" if model.predict(input, False)[0] == 1 else "Not Fraud"
         return JSONResponse(content={"fraudStatus": status})
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Error checking transaction: {err}")
     finally:
-        await modelLock.acquireActiveLock()
+        modelLock.releaseActiveLock()
 
 
 @app.post("/load-model")
@@ -111,7 +112,7 @@ async def loadModel(filepath: str):
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Failed to load model: {err}")
     finally:
-        await modelLock.releaseActiveLock()
+        modelLock.releaseActiveLock()
 
 
 @app.post("/load-forest")
@@ -126,7 +127,7 @@ async def loadForest(filepath: str):
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Failed to load forest: {err}")
     finally:
-        await forestLock.releaseActiveLock()
+        forestLock.releaseActiveLock()
 
 
 @app.post("/save-model")
