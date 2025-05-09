@@ -1,5 +1,6 @@
-from Transaction import Transaction
+from Transaction import TargetedTransaction
 from databases import Database
+import numpy as np
 import ssl
 
 ssl_context = ssl.create_default_context(
@@ -24,43 +25,26 @@ class DbConnection:
     async def getTestData(self):
         query = "SELECT * FROM test"
         rows = await self.db.fetch_all(query=query)
-        return [
-            Transaction(
+        return np.array([
+            TargetedTransaction(
                 merchId=row[0], amount=row[1], zip=row[2], lat=row[3], long=row[4],
                 cityPop=row[5], unixTime=row[6], merchLat=row[7], merchLong=row[8], isFraud=row[9]
             ).toArray()
             for row in rows
-        ]
-
-    async def getTrainingData(self):
-        query = "SELECT * FROM train"
-        rows = await self.db.fetch_all(query=query)
-        return [
-            Transaction(
-                merchId=row[0], amount=row[1], zip=row[2], lat=row[3], long=row[4],
-                cityPop=row[5], unixTime=row[6], merchLat=row[7], merchLong=row[8], isFraud=row[9]
-            ).toArray()
-            for row in rows
-        ]
+        ], dtype=object)
 
     async def getOrderedTrainingData(self):
         query = "SELECT * FROM train ORDER BY merchant, unix_time"
         rows = await self.db.fetch_all(query=query)
-        return [
-            Transaction(
+        return np.array([
+            TargetedTransaction(
                 merchId=row[0], amount=row[1], zip=row[2], lat=row[3], long=row[4],
                 cityPop=row[5], unixTime=row[6], merchLat=row[7], merchLong=row[8], isFraud=row[9]
             ).toArray()
             for row in rows
-        ]
+        ], dtype=object)
 
-    async def runQuery(self, fetchOne: bool, query: str):
-        if fetchOne:
-            return await self.db.fetch_one(query=query)
-        else:
-            return await self.db.fetch_all(query=query)
-
-    async def storeTransaction(self, transaction: Transaction):
+    async def storeTransaction(self, transaction: TargetedTransaction):
         query = "INSERT INTO transactions (merchId, amount, zip, lat, long, cityPop, unixTime, merchLat, merchLong, " \
                 "isFraud) VALUES (:merchId, :amount, :zip, :lat, :long, :cityPop, :unixTime, :merchLat, :merchLong, " \
                 ":isFraud) "

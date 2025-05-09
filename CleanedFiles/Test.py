@@ -34,6 +34,7 @@ async def main():
             )
             for row in rows
         ]
+
         responses = await sendAllTransactions(transactions, "http://127.0.0.1:8000/check-fraudulent-status")
 
         for i, row in enumerate(transactions):

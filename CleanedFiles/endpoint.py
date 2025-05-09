@@ -9,10 +9,10 @@ from Model import undersample
 from Models import getModel
 from Model import Model
 from Lock import Lock
+import numpy as np
 import datetime
 import joblib
 import anyio
-import copy
 import sys
 
 # Create Endpoint on 127.0.0.1:8000
@@ -34,20 +34,28 @@ async def startup():
         await database.connect()
         print("Database connection successful")
         print("Waiting to receive data from database")
-        forestTrainingData = await db.getOrderedTrainingData()
-        modelTrainingData = undersample([x[1:] for x in forestTrainingData])
-        print("Data Received1")
-        testData = [x[1:] for x in await db.getTestData()]
+        # forestTrainingData = await db.getOrderedTrainingData()
+        # modelTrainingData = undersample(np.array(forestTrainingData[:, 1:], dtype=float))
+        # testData = np.array((await db.getTestData())[:, 1:], dtype=float)
+        # joblib.dump(forestTrainingData, 'forestTrain.pkl', compress=0)
+        # joblib.dump(modelTrainingData, 'modelTrain.pkl', compress=0)
+        # joblib.dump(testData, 'testData.pkl', compress=0)
+        forestTrainingData = joblib.load('forestTrain.pkl')
+        modelTrainingData = joblib.load('modelTrain.pkl')
+        testData = joblib.load('testData.pkl')
         print("Data Received")
 
         model = getModel()
         model.commenceTraining(modelTrainingData, testData)
 
+        print("Model Built")
+
         del modelTrainingData
 
-        isolationForest = IsolationForestModel(model.getModel(), model)
+        isolationForest = IsolationForestModel(model)
         isolationForest.buildForest(forestTrainingData)
 
+        print("Isolation Forest Built")
     except Exception as err:
         print(f"Startup error: {err}")
         shutdown()
@@ -69,7 +77,7 @@ async def get_report(merchant: str, date: str):
     await forestLock.acquirePassiveLock()
     try:
         dateTime = datetime.datetime.strptime(date, "%d/%m/%Y")
-        status = isolationForest.getMerchReport(merchant, int(dateTime.timestamp()))
+        status = await isolationForest.getMerchReport(merchant, int(dateTime.timestamp()))
         return JSONResponse(content={"fraudStatus": status})
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use DD/MM/YYYY.")
@@ -83,9 +91,7 @@ async def get_report(merchant: str, date: str):
 async def check_transaction(transaction: Transaction):
     await modelLock.acquireActiveLock()
     try:
-        # modelCopy = copy.deepcopy(model)
-        # status = modelCopy.testTransaction(transaction.toArray()[1:])
-        status = model.testTransaction(transaction.toArray()[1:])
+        status = model.predict(transaction.toArray()[1:], False)
         return JSONResponse(content={"fraudStatus": status})
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Error checking transaction: {err}")

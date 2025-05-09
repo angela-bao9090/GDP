@@ -7,9 +7,6 @@ from ModelParameters import *
 from Model import Model
 import xgboost as xgb
 
-mlModelTypes = GradientBoostingClassifier | RandomForestClassifier | LogisticRegression | SGDClassifier | MLPClassifier\
-               | MLPClassifier | CatBoostClassifier
-
 config = {
     "modelType": "RF",
     "params": RandomForestParams()

@@ -2,9 +2,6 @@ from abc import abstractmethod
 
 
 class ModelParams:
-    def __init__(self):
-        self.threshold = None
-
     @abstractmethod
     def setParams(self, paramsDict):
         pass
