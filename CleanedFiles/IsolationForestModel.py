@@ -90,8 +90,7 @@ class IsolationForestModel:
         self.fitForest(statsWithoutMerchantDay)
         DailyFraudProbs = self.getIsolationForestFraudProbs(statsWithoutMerchantDay)
 
-        print(isinstance(merchDayStats[0]['merchant'], str))
-        print(isinstance(merchDayStats[0]['day'], int))
+        print(merchDayStats[0])
         for idx, info in enumerate(merchDayStats):
             self.fraudProbs[(str(info['merchant']), int(info['day']))] = max(DailyFraudProbs[idx], int(info['fraud']))
 

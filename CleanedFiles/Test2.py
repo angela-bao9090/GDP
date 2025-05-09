@@ -29,7 +29,7 @@ async def main():
         await database.connect()
 
         # Modify query and indices as needed
-        rows = await db.runQuery(0, "SELECT merchant, unix_time FROM test ORDER BY RAND() LIMIT 500;")
+        rows = await db.runQuery(0, "SELECT merchant, unix_time FROM train ORDER BY RAND() LIMIT 500;")
 
         responses = await sendAllMerchantReports(rows, "http://127.0.0.1:8000/get-merchant-report")
 
