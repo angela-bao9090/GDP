@@ -19,19 +19,19 @@ def getModel():
         case "NN":
             return NeuralNetwork(values[1])
         case "LR":
-            return LogisticRegression(values[1])
+            return LogisticRegression(values[1]) 
         case "NB":
             return NaiveBayes(values[1])
         case "GB":
-            return GradientBoostingMachineModel(values[1])
+            return GradientBoostingMachine(values[1])
         case "XG":
-            return XGBoostModel(values[1])
+            return XGBoost(values[1])
         case "CB":
-            return CatBoostModel(values[1])
+            return CatBoost(values[1])
         case "RF":
-            return RandomForestModel(values[1])
+            return RandomForest(values[1])
         case "SGD":
-            return SGDClassifierModel(values[1])
+            return SGDClassifier(values[1])
 
 
 class NeuralNetwork(Model):
@@ -46,7 +46,7 @@ class NeuralNetwork(Model):
         return "NN"
 
 
-class LogisticRegressionModel(Model):
+class LogisticRegression(Model):
     def __init__(self, params: LogisticRegressionParams):
         self.params = params
         super().__init__(params.threshold)
@@ -70,8 +70,8 @@ class NaiveBayes(Model):
         return "NB"
 
 
-class GradientBoostingMachineModel(Model):
-    def __init__(self, params: GradientBoostingMachineModelParams):
+class GradientBoostingMachine(Model):
+    def __init__(self, params: GradientBoostingMachineParams):
         self.params = params
         super().__init__(params.threshold)
 
@@ -82,7 +82,7 @@ class GradientBoostingMachineModel(Model):
         return "GB"
 
 
-class XGBoostModel(Model):
+class XGBoost(Model):
     def __init__(self, params: XGBoostParams):
         self.params = params
         super().__init__(params.threshold)
@@ -94,7 +94,7 @@ class XGBoostModel(Model):
         return "XGB"
 
 
-class CatBoostModel(Model):
+class CatBoost(Model):
     def __init__(self, params: CatBoostParams):
         self.params = params
         super().__init__(params.threshold)
@@ -106,7 +106,7 @@ class CatBoostModel(Model):
         return "CB"
 
 
-class RandomForestModel(Model):
+class RandomForest(Model):
     def __init__(self, params: RandomForestParams):
         self.params = params
         super().__init__(params.threshold)
@@ -118,7 +118,7 @@ class RandomForestModel(Model):
         return "RF"
 
 
-class SGDClassifierModel(Model):
+class SGDClassifier(Model):
     def __init__(self, params: SGDClassifierParams):
         self.params = params
         super().__init__(params.threshold)

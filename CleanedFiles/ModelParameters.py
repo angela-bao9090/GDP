@@ -110,7 +110,7 @@ class NaiveBayesParams(ModelParams):
         }
 
 
-class GradientBoostingMachineModelParams(ModelParams):
+class GradientBoostingMachineParams(ModelParams):
     def __init__(self):
         self.threshold = 0.6
         self.n_estimators = 100
