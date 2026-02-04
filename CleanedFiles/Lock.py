@@ -5,17 +5,18 @@ class Lock:
     def __init__(self):
         self.passive = 0
         self.activeLock = asyncio.Lock()
-        self.lock = asyncio.Lock()
+        self.Lock = asyncio.Lock()
         self.passivesDone = asyncio.Event()
         self.passivesDone.set()
 
     async def acquirePassiveLock(self):
-        async with self.lock:
-            self.passive += 1
-            self.passivesDone.clear()
+        async with self.activeLock:
+            async with self.Lock:
+                self.passive += 1
+                self.passivesDone.clear()
 
     async def releasePassiveLock(self):
-        async with self.lock:
+        async with self.Lock:
             self.passive -= 1
             if self.passive == 0:
                 self.passivesDone.set()
